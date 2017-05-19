@@ -140,19 +140,20 @@ struct Buffer {
 
 
 
-final class Connection: NSObject, StreamDelegate {
-	enum Error: Swift.Error {
+public final class Connection: NSObject, StreamDelegate {
+	public enum Error: Swift.Error {
 		case invalidStatusData
 		case unrecognizedMessage
 	}
 	
-	enum RequestType: UInt8 {
+	public enum RequestType: UInt8 {
 		case authentication = 82 // R
 		case statusReport = 83 // S
 		case backendKeyData = 75 // K
+		case readyForQuery = 90 // Z
 	}
 	
-	enum AuthenticationResponse: UInt32 {
+	public enum AuthenticationResponse: UInt32 {
 		case authenticationOK = 0
 		// case kerberosV5 = 2
 		// case cleartextPassword = 3
@@ -160,11 +161,38 @@ final class Connection: NSObject, StreamDelegate {
 		// case SCMCredential = 6
 	}
 	
+	public enum TransactionStatus: UInt8 {
+		case notReady
+		
+		case idle = 73 // I - not in a transaction block
+		case inTransaction = 84 // T
+		case failed = 69 // E
+	}
+	
 	
 	// MARK: - Notifications
 	
-	static let connected = NotificationDescriptor<VoidPayload>("PG.Connection.connected")
-	static let loginSuccess = NotificationDescriptor<VoidPayload>("PG.Connection.loginSuccess")
+	public static let connected = NotificationDescriptor<VoidPayload>("PG.Connection.connected")
+	public static let loginSuccess = NotificationDescriptor<VoidPayload>("PG.Connection.loginSuccess")
+	
+	public struct ReadyForQueryPayload: NotificationPayload {
+		public let transactionStatus: TransactionStatus
+		
+		public init(transactionStatus: TransactionStatus) {
+			self.transactionStatus = transactionStatus
+		}
+		
+		public init(userInfo: [AnyHashable:Any]) {
+			self.init(transactionStatus: userInfo["transactionStatus"] as! TransactionStatus)
+		}
+		
+		public var userInfo: [AnyHashable:Any] {
+			return [
+				"transactionStatus": transactionStatus,
+			]
+		}
+	}
+	public static let readyForQuery = NotificationDescriptor<ReadyForQueryPayload>("PG.Connection.readyForQuery")
 	
 	
 	// MARK: - Initialization
@@ -197,6 +225,8 @@ final class Connection: NSObject, StreamDelegate {
 	public private(set) var processID: Int32?
 	
 	public private(set) var secretKey: Int32?
+	
+	public private(set) var transactionStatus: TransactionStatus = .notReady
 	
 	
 	// MARK: - Writing
@@ -307,6 +337,14 @@ final class Connection: NSObject, StreamDelegate {
 				self.secretKey = try input.read()
 				
 				print("processID: \(processID!) secretKey: \(secretKey!)")
+			case .readyForQuery:
+				let length: UInt32 = try input.read()
+				guard length == 5 else { throw Error.unrecognizedMessage }
+				
+				let rawStatus: UInt8 = try input.read()
+				self.transactionStatus = TransactionStatus(rawValue: rawStatus) ?? .idle
+				
+				Connection.readyForQuery.post(sender: self, ReadyForQueryPayload(transactionStatus: self.transactionStatus))
 			}
 		} catch {
 			print("read error: \(error)")

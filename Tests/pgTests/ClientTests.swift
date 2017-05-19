@@ -21,9 +21,9 @@ class ClientTests: XCTestCase {
 		let client = Client(Client.Config(user: "postgres", database: "truckee"))
 		
 		let loginExpectation = self.expectation(description: "login client")
-		Client.loginSuccess.observe(object: client) { _ in
+		_ = Client.loginSuccess.observe(object: client) { _ in
 			XCTAssertTrue(client.isConnected)
-//			loginExpectation.fulfill()
+			loginExpectation.fulfill()
 		}
 		
 		let connectExpectation = self.expectation(description: "connect client")
@@ -32,6 +32,13 @@ class ClientTests: XCTestCase {
 			
 			connectExpectation.fulfill()
 		})
+		
+		let readyForQueryExpectation = self.expectation(description: "readyForQuery")
+		_ = Connection.readyForQuery.observe(object: client.connection) { (payload) in
+			XCTAssertEqual(payload.transactionStatus, .idle)
+			XCTAssertEqual(client.connection?.transactionStatus, .idle)
+			readyForQueryExpectation.fulfill()
+		}
 		
 		waitForExpectations(timeout: 30)
 	}

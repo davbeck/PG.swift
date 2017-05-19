@@ -52,7 +52,7 @@ public final class Client: NotificationObservable {
 	public let config: Config
 	
 	public var notificationObservers: [Observer] = []
-	var connection: Connection?
+	public private(set) var connection: Connection?
 	
 	public init(_ config: Config) {
 		self.config = config
