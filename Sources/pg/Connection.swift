@@ -43,6 +43,10 @@ extension Data {
 	}
 }
 
+public enum StreamError: Swift.Error {
+	case notEnoughBytes
+}
+
 extension Stream.Status {
 	var isConnected: Bool {
 		switch self {
@@ -82,14 +86,16 @@ extension OutputStream {
 }
 
 extension InputStream {
-	func read<T: NetworkOrderable>() -> T? {
+	func read<T: NetworkOrderable>() throws -> T {
 		var value: T = T()
 		let readLength = withUnsafeMutablePointer(to: &value) { (valuePointer) in
 			valuePointer.withMemoryRebound(to: UInt8.self, capacity: MemoryLayout<T>.size, { (buffer) in
 				self.read(buffer, maxLength: MemoryLayout<T>.size)
 			})
 		}
-		guard readLength == MemoryLayout<T>.size else { return nil }
+		
+		guard readLength == MemoryLayout<T>.size else { throw StreamError.notEnoughBytes }
+		
 		return T(bigEndian: value)
 	}
 	
@@ -135,8 +141,13 @@ struct Buffer {
 
 
 final class Connection: NSObject, StreamDelegate {
+	enum Error: Swift.Error {
+		case invalidStatusData
+	}
+	
 	enum RequestType: UInt8 {
-		case authentication = 82 // ASCII R
+		case authentication = 82 // R
+		case statusReport = 83 // S
 	}
 	
 	enum AuthenticationResponse: UInt32 {
@@ -177,7 +188,9 @@ final class Connection: NSObject, StreamDelegate {
 		return self.input.streamStatus.isConnected && self.output.streamStatus.isConnected
 	}
 	
-	public var isAuthenticated: Bool = false
+	public private(set) var isAuthenticated: Bool = false
+	
+	public private(set) var parameters: [String:String] = [:]
 	
 	
 	// MARK: - Writing
@@ -230,31 +243,60 @@ final class Connection: NSObject, StreamDelegate {
 			dispatchPrecondition(condition: .onQueue(self.queue))
 		}
 		
-		guard input.hasBytesAvailable else { return }
-		
-		
-		guard let byte: UInt8 = input.read() else { return }
-		print("command: \(byte)")
-		guard let requestType = RequestType(rawValue: byte) else { return }
-		
-		
-		switch requestType {
-		case .authentication:
-			guard let length: UInt32 = input.read() else { return }
-			print("length: \(length)")
-			guard let rawResponse: UInt32 = input.read() else { return }
-			let data = input.read(Int(length - 4 - 4))
-			print("data: \(data.hexEncoded())")
+		do {
+			guard input.hasBytesAvailable else { return }
 			
-			if let response = AuthenticationResponse(rawValue: rawResponse) {
-				switch response {
-				case .authenticationOK:
-					self.isAuthenticated = true
-					Connection.loginSuccess.post(sender: self)
-				}
-			} else {
-				
+			
+			let byte: UInt8 = try input.read()
+			print("command: \(byte)")
+			guard let requestType = RequestType(rawValue: byte) else {
+				print("unrecognized message type \(byte).")
+				return
 			}
+			
+			
+			switch requestType {
+			case .authentication:
+				let length: UInt32 = try input.read()
+				let rawResponse: UInt32 = try input.read()
+				_ = input.read(Int(length - 4 - 4))
+				
+				if let response = AuthenticationResponse(rawValue: rawResponse) {
+					switch response {
+					case .authenticationOK:
+						self.isAuthenticated = true
+						Connection.loginSuccess.post(sender: self)
+					}
+				} else {
+					
+				}
+			case .statusReport:
+				let length: UInt32 = try input.read() - 4
+				let data = input.read(Int(length))
+				
+				// split on the C style null terminating character
+				let parts = data
+					.split(separator: 0, maxSplits: 2, omittingEmptySubsequences: true)
+					.flatMap({ String(data: Data($0), encoding: .utf8) })
+				
+				let key: String
+				let value: String?
+				if parts.count == 1 {
+					key = parts[0]
+					value = nil
+				} else if parts.count == 2 {
+					key = parts[0]
+					value = parts[1]
+				} else {
+					throw Error.invalidStatusData
+				}
+				
+				parameters[key] = value
+				
+				print("status \(key): \(value ?? "NULL")")
+			}
+		} catch {
+			print("read error: \(error)")
 		}
 	}
 	

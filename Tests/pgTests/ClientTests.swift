@@ -23,7 +23,7 @@ class ClientTests: XCTestCase {
 		let loginExpectation = self.expectation(description: "login client")
 		Client.loginSuccess.observe(object: client) { _ in
 			XCTAssertTrue(client.isConnected)
-			loginExpectation.fulfill()
+//			loginExpectation.fulfill()
 		}
 		
 		let connectExpectation = self.expectation(description: "connect client")
