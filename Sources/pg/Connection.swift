@@ -143,11 +143,13 @@ struct Buffer {
 final class Connection: NSObject, StreamDelegate {
 	enum Error: Swift.Error {
 		case invalidStatusData
+		case unrecognizedMessage
 	}
 	
 	enum RequestType: UInt8 {
 		case authentication = 82 // R
 		case statusReport = 83 // S
+		case backendKeyData = 75 // K
 	}
 	
 	enum AuthenticationResponse: UInt32 {
@@ -191,6 +193,10 @@ final class Connection: NSObject, StreamDelegate {
 	public private(set) var isAuthenticated: Bool = false
 	
 	public private(set) var parameters: [String:String] = [:]
+	
+	public private(set) var processID: Int32?
+	
+	public private(set) var secretKey: Int32?
 	
 	
 	// MARK: - Writing
@@ -294,6 +300,13 @@ final class Connection: NSObject, StreamDelegate {
 				parameters[key] = value
 				
 				print("status \(key): \(value ?? "NULL")")
+			case .backendKeyData:
+				let length: UInt32 = try input.read()
+				guard length == 12 else { throw Error.unrecognizedMessage }
+				self.processID = try input.read()
+				self.secretKey = try input.read()
+				
+				print("processID: \(processID!) secretKey: \(secretKey!)")
 			}
 		} catch {
 			print("read error: \(error)")
