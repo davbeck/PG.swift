@@ -1,6 +1,6 @@
 # PG.swift
 
-A [PostgreSQL](https://www.postgresql.org) server written in pure Swift (without any dependency the C [libpq](https://www.postgresql.org/docs/9.5/static/libpq.html)).
+A [PostgreSQL](https://www.postgresql.org) client library written in pure Swift (without any dependency the C [libpq](https://www.postgresql.org/docs/9.5/static/libpq.html)).
 
 ## Motivation
 
