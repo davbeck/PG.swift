@@ -42,6 +42,16 @@ public struct NotificationDescriptor<Payload: NotificationPayload> {
 			block(Payload(userInfo: notification.userInfo ?? [:]))
 		}
 	}
+	
+	@discardableResult
+	public func observeOnce(object obj: Any?, queue: OperationQueue? = nil, using block: @escaping (Payload) -> Swift.Void) -> NSObjectProtocol {
+		var observer: NSObjectProtocol?
+		observer = NotificationCenter.default.addObserver(forName: self.name, object: obj, queue: queue) { (notification) in
+			NotificationCenter.default.removeObserver(observer)
+			block(Payload(userInfo: notification.userInfo ?? [:]))
+		}
+		return observer!
+	}
 }
 
 extension NotificationDescriptor where Payload == VoidPayload {

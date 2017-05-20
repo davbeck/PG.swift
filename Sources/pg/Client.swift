@@ -49,6 +49,8 @@ public final class Client: NotificationObservable {
 	}
 	
 	
+	private let queue = DispatchQueue(label: "PG.Client")
+	
 	public let config: Config
 	
 	public var notificationObservers: [Observer] = []
@@ -61,8 +63,8 @@ public final class Client: NotificationObservable {
 	
 	// MARK: - Notifications
 	
-	public static let connected = NotificationDescriptor<VoidPayload>("PG.Connection.connected")
-	public static let loginSuccess = NotificationDescriptor<VoidPayload>("PG.Connection.loginSuccess")
+	public let connected = EventEmitter<Void>(name: "PG.Client.connected")
+	public let loginSuccess = EventEmitter<Void>(name: "PG.Client.loginSuccess")
 	
 	
 	// MARK: -
@@ -91,27 +93,78 @@ public final class Client: NotificationObservable {
 				output.setProperty(kCFStreamSocketSecurityLevelTLSv1, forKey: .socketSecurityLevelKey)
 			}
 			
-			self.connection = Connection(input: input, output: output)
+			let connection = Connection(input: input, output: output)
+			self.connection = connection
 			
-			self.observe(Connection.loginSuccess, object: connection, using: { [weak self] _ in
+			connection.loginSuccess.observe(on: self.queue) {
 				completion?(nil)
 				completion = nil
 				
-				Client.loginSuccess.post(sender: self)
-			})
-			self.observe(Connection.connected, object: connection, using: { [weak self] _ in
-				Client.connected.post(sender: self)
-			})
+				self.loginSuccess.emit()
+			}
+			
+			connection.connected.observe {
+				self.connected.emit()
+			}
+			
+			connection.readyForQuery.observe(on: self.queue) { _ in
+				self.executeQuery()
+			}
 			
 			for stream in [input, output] {
 				stream.schedule(in: .current, forMode: .defaultRunLoopMode)
 				stream.open()
 			}
 			
-			connection?.sendStartup(user: config.user, database: config.database)
+			connection.sendStartup(user: config.user, database: config.database)
 		} else {
 			completion?(Error.connectionFailure)
 			completion = nil
 		}
+	}
+	
+	
+	// MARK: - Query
+	
+	private var queryQueue: [Query] = []
+	
+	public func exec(_ query: Query, callback: ((Result) -> Void)?) {
+		if let callback = callback {
+			query.completed.once(callback)
+		}
+		
+		queue.async {
+			self.queryQueue.append(query)
+
+			self.executeQuery()
+		}
+	}
+	
+	private func executeQuery() {
+		if #available(OSX 10.12, *) {
+			dispatchPrecondition(condition: .onQueue(self.queue))
+		}
+		
+		
+		guard let connection = self.connection, connection.transactionStatus == .idle else { return }
+		guard let query = queryQueue.first else { return }
+		queryQueue.removeFirst()
+		
+		var fields: [Field] = []
+		connection.rowDescriptionReceived.once() { fields = $0 }
+		
+		var rows: [[DataSlice?]] = []
+		let rowReceived = connection.rowReceived.observe() { rowFields in
+			rows.append(rowFields)
+		}
+		
+		connection.commandComplete.once() { _ in
+			let result = Result(fields: fields, rows: rows)
+			query.completed.emit(result)
+			
+			rowReceived.remove()
+		}
+		
+		connection.simpleQuery(query.string)
 	}
 }

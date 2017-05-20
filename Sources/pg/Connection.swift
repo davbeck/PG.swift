@@ -1,156 +1,27 @@
 import Foundation
 
 
-protocol NetworkOrderable {
-	init()
-	init(bigEndian value: Self)
-	var bigEndian: Self { get }
-}
-extension Int8: NetworkOrderable {
-	init(bigEndian value: Int8) {
-		self.init(value)
-	}
-	
-	var bigEndian: Int8 {
-		return self
-	}
-}
-extension UInt8: NetworkOrderable {
-	init(bigEndian value: UInt8) {
-		self.init(value)
-	}
-	
-	var bigEndian: UInt8 {
-		return self
-	}
-}
-extension Int16: NetworkOrderable {}
-extension UInt16: NetworkOrderable {}
-extension Int32: NetworkOrderable {}
-extension UInt32: NetworkOrderable {}
-
-
-extension String {
-	func data() -> Data {
-		// utf8 is the one true encoding, and should never return have encoding issues, but if it does, allowLossyConversion will fail gracefully
-		return self.data(using: .utf8, allowLossyConversion: true)!
-	}
-}
-
-extension Data {
-	func hexEncoded() -> String {
-		return map { String(format: "%02hhx", $0) }.joined()
-	}
-}
-
-public enum StreamError: Swift.Error {
-	case notEnoughBytes
-}
-
-extension Stream.Status {
-	var isConnected: Bool {
-		switch self {
-		case .atEnd, .error, .open, .reading, .writing:
-			return true
-		case .notOpen, .closed, .opening:
-			return false
-		}
-	}
-}
-
-extension OutputStream {
-	@discardableResult
-	func write(_ bytes: UnsafeBufferPointer<UInt8>) -> Int {
-		guard let baseAddress = bytes.baseAddress else { return 0 }
-		return self.write(baseAddress, maxLength: bytes.count)
-	}
-	
-	@discardableResult
-	func write<T: NetworkOrderable>(_ value: T) -> Int {
-		var value = value.bigEndian
-		return withUnsafePointer(to: &value) { buffer in
-			buffer.withMemoryRebound(to: UInt8.self, capacity: 1, { buffer in
-				self.write(buffer, maxLength: MemoryLayout<T>.size)
-			})
-		}
-	}
-	
-	@discardableResult
-	func write(_ data: Data) -> Int {
-		var written = 0
-		data.enumerateBytes { (bytes, offset, stop) in
-			written += self.write(bytes)
-		}
-		return written
-	}
-}
-
-extension InputStream {
-	func read<T: NetworkOrderable>() throws -> T {
-		var value: T = T()
-		let readLength = withUnsafeMutablePointer(to: &value) { (valuePointer) in
-			valuePointer.withMemoryRebound(to: UInt8.self, capacity: MemoryLayout<T>.size, { (buffer) in
-				self.read(buffer, maxLength: MemoryLayout<T>.size)
-			})
-		}
-		
-		guard readLength == MemoryLayout<T>.size else { throw StreamError.notEnoughBytes }
-		
-		return T(bigEndian: value)
-	}
-	
-	func read(_ count: Int) -> Data {
-		var data = Data()
-		guard count > 0 else { return data }
-		
-		let bufferSize = 1024
-		let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
-		while data.count < count {
-			let dataToRead = min(count - data.count, bufferSize)
-			let readLength = self.read(buffer, maxLength: dataToRead)
-			data.append(buffer, count: readLength)
-			guard readLength == dataToRead else { break }
-		}
-		buffer.deinitialize()
-		
-		return data
-	}
-}
-
-
-/// A simple wrapper around Data that writes information in Postgres specific formats.
-struct Buffer {
-	var data = Data()
-	
-	mutating func write<T: NetworkOrderable>(_ value: T) {
-		var value = value.bigEndian
-		data.append(UnsafeBufferPointer(start: &value, count: 1))
-	}
-	
-	mutating func write(_ value: Int8) {
-		var value = value
-		data.append(UnsafeBufferPointer(start: &value, count: 1))
-	}
-	
-	mutating func write(_ value: String) {
-		data.append(value.data())
-		self.write(0 as Int8)
-	}
-}
-
-
-
 public final class Connection: NSObject, StreamDelegate {
 	public enum Error: Swift.Error {
-		case invalidStatusData
-		case unrecognizedMessage
+		case mismatchedDataLengths
+		case unrecognizedMessage(UInt8)
+		case malformedMessage
 	}
 	
-	public enum RequestType: UInt8 {
+	public enum MessageType: UInt8 {
 		case authentication = 82 // R
 		case statusReport = 83 // S
 		case backendKeyData = 75 // K
 		case readyForQuery = 90 // Z
+		case rowDescription = 84 // T
+		case commandComplete = 67 // C
+		case dataRow = 68 // D
+	}
+	
+	public enum RequestType: UInt8 {
+		case startup // the only message that doesn't announce it's type
+		
+		case simpleQuery = 81 // Q
 	}
 	
 	public enum AuthenticationResponse: UInt32 {
@@ -170,29 +41,16 @@ public final class Connection: NSObject, StreamDelegate {
 	}
 	
 	
-	// MARK: - Notifications
+	// MARK: - Events
 	
-	public static let connected = NotificationDescriptor<VoidPayload>("PG.Connection.connected")
-	public static let loginSuccess = NotificationDescriptor<VoidPayload>("PG.Connection.loginSuccess")
+	public let connected = EventEmitter<Void>(name: "PG.Connection.connected")
+	public let loginSuccess = EventEmitter<Void>(name: "PG.Connection.loginSuccess")
 	
-	public struct ReadyForQueryPayload: NotificationPayload {
-		public let transactionStatus: TransactionStatus
-		
-		public init(transactionStatus: TransactionStatus) {
-			self.transactionStatus = transactionStatus
-		}
-		
-		public init(userInfo: [AnyHashable:Any]) {
-			self.init(transactionStatus: userInfo["transactionStatus"] as! TransactionStatus)
-		}
-		
-		public var userInfo: [AnyHashable:Any] {
-			return [
-				"transactionStatus": transactionStatus,
-			]
-		}
-	}
-	public static let readyForQuery = NotificationDescriptor<ReadyForQueryPayload>("PG.Connection.readyForQuery")
+	public let readyForQuery = EventEmitter<TransactionStatus>(name: "PG.Connection.readyForQuery")
+	
+	public let rowDescriptionReceived = EventEmitter<[Field]>(name: "PG.Connection.rowDescriptionReceived")
+	public let rowReceived = EventEmitter<[DataSlice?]>(name: "PG.Connection.rowReceived")
+	public let commandComplete = EventEmitter<String>(name: "PG.Connection.commandComplete")
 	
 	
 	// MARK: - Initialization
@@ -226,18 +84,20 @@ public final class Connection: NSObject, StreamDelegate {
 	
 	public private(set) var secretKey: Int32?
 	
-	public private(set) var transactionStatus: TransactionStatus = .notReady
+	public fileprivate(set) var transactionStatus: TransactionStatus = .notReady
 	
 	
 	// MARK: - Writing
 	
 	struct WriteItem {
+		let type: RequestType
 		let buffer: Buffer
 		let completion: (() -> Void)?
 		
 		var offset: Int = 0
 		
-		init(buffer: Buffer, completion: (() -> Void)?) {
+		init(type: RequestType, buffer: Buffer, completion: (() -> Void)?) {
+			self.type = type
 			self.buffer = buffer
 			self.completion = completion
 		}
@@ -245,9 +105,9 @@ public final class Connection: NSObject, StreamDelegate {
 	
 	private var bufferQueue: [WriteItem] = []
 	
-	func write(_ buffer: Buffer, completion: (() -> Void)? = nil) {
+	func write(_ type: RequestType, _ buffer: Buffer, completion: (() -> Void)? = nil) {
 		queue.async {
-			let writeItem = WriteItem(buffer: buffer, completion: completion)
+			let writeItem = WriteItem(type: type, buffer: buffer, completion: completion)
 			self.bufferQueue.append(writeItem)
 			
 			self.write()
@@ -261,13 +121,16 @@ public final class Connection: NSObject, StreamDelegate {
 		
 		while output.hasSpaceAvailable {
 			guard let current = bufferQueue.first else { return }
+			bufferQueue.removeFirst()
 			
-			print("writing: \(current.buffer.data)")
+			print("writing: \(current.type) \(current.buffer.data)")
+			if current.type != .startup {
+				output.write(current.type.rawValue)
+			}
+			
 			output.write(UInt32(current.buffer.data.count + 4))
 			output.write(current.buffer.data)
 			current.completion?()
-			
-			bufferQueue.removeFirst()
 		}
 	}
 	
@@ -285,66 +148,89 @@ public final class Connection: NSObject, StreamDelegate {
 			
 			let byte: UInt8 = try input.read()
 			print("command: \(byte)")
-			guard let requestType = RequestType(rawValue: byte) else {
-				print("unrecognized message type \(byte).")
-				return
+			
+			let length: UInt32 = try input.read() - 4
+			var buffer = ReadBuffer(input.read(Int(length)))
+			guard buffer.data.count == Int(length) else { throw Error.mismatchedDataLengths }
+			
+			guard let messageType = MessageType(rawValue: byte) else {
+				print("unrecognizedMessage: \(byte)")
+				throw Error.unrecognizedMessage(byte)
 			}
 			
 			
-			switch requestType {
+			switch messageType {
 			case .authentication:
-				let length: UInt32 = try input.read()
-				let rawResponse: UInt32 = try input.read()
-				_ = input.read(Int(length - 4 - 4))
+				let rawResponse: UInt32 = try buffer.read()
 				
 				if let response = AuthenticationResponse(rawValue: rawResponse) {
 					switch response {
 					case .authenticationOK:
 						self.isAuthenticated = true
-						Connection.loginSuccess.post(sender: self)
+						self.loginSuccess.emit()
 					}
 				} else {
 					
 				}
 			case .statusReport:
-				let length: UInt32 = try input.read() - 4
-				let data = input.read(Int(length))
-				
-				// split on the C style null terminating character
-				let parts = data
-					.split(separator: 0, maxSplits: 2, omittingEmptySubsequences: true)
-					.flatMap({ String(data: Data($0), encoding: .utf8) })
-				
-				let key: String
-				let value: String?
-				if parts.count == 1 {
-					key = parts[0]
-					value = nil
-				} else if parts.count == 2 {
-					key = parts[0]
-					value = parts[1]
-				} else {
-					throw Error.invalidStatusData
-				}
+				let key: String = try buffer.read()
+				let value: String = try buffer.read()
 				
 				parameters[key] = value
 				
-				print("status \(key): \(value ?? "NULL")")
+				print("status \(key): \(value)")
 			case .backendKeyData:
-				let length: UInt32 = try input.read()
-				guard length == 12 else { throw Error.unrecognizedMessage }
-				self.processID = try input.read()
-				self.secretKey = try input.read()
+				guard buffer.data.count == 8 else { throw Error.malformedMessage }
+				self.processID = try buffer.read()
+				self.secretKey = try buffer.read()
 				
 				print("processID: \(processID!) secretKey: \(secretKey!)")
 			case .readyForQuery:
-				let length: UInt32 = try input.read()
-				guard length == 5 else { throw Error.unrecognizedMessage }
+				guard buffer.data.count == 1 else { throw Error.malformedMessage }
 				
-				let rawStatus: UInt8 = try input.read()
+				let rawStatus: UInt8 = try buffer.read()
 				self.transactionStatus = TransactionStatus(rawValue: rawStatus) ?? .idle
 				
-				Connection.readyForQuery.post(sender: self, ReadyForQueryPayload(transactionStatus: self.transactionStatus))
+				self.readyForQuery.emit(self.transactionStatus)
+			case .rowDescription:
+				let fieldsCount: UInt16 = try buffer.read()
+				
+				let fields: [Field] = try (0..<fieldsCount).map() { _ in
+					var field = Field()
+					field.name = try buffer.read()
+					field.tableID = try buffer.read()
+					field.columnID = try buffer.read()
+					field.dataTypeID = try buffer.read()
+					field.dataTypeSize = try buffer.read()
+					field.dataTypeModifier = try buffer.read()
+					field.mode = try Field.Mode(rawValue: buffer.read()) ?? .text
+					return field
+				}
+				
+				self.rowDescriptionReceived.emit(fields)
+				print("fields: \(fields)")
+			case .commandComplete:
+				let commandTag = try buffer.read() as String
+				print("command complete: \(commandTag)")
+				
+				self.commandComplete.emit(commandTag)
+			case .dataRow:
+				let columnCount = try buffer.read() as UInt16
+				print("columnCount: \(columnCount)")
+				
+				let rows: [DataSlice?] = try (0..<columnCount).map() { _ in
+					let length = try buffer.read() as Int32
+					print("length: \(length)")
+					if length >= 0 {
+						return try buffer.read(length: Int(length))
+					} else {
+						return nil
+					}
+				}
+				
+				self.rowReceived.emit(rows)
+				let textRows = rows.flatMap({$0}).map({ String(data: Data($0), encoding: .utf8) })
+				print("rows: \(textRows)")
 			}
 		} catch {
 			print("read error: \(error)")
@@ -360,7 +246,7 @@ public final class Connection: NSObject, StreamDelegate {
 			case Stream.Event.openCompleted:
 				print("openCompleted \(stream)")
 				if self.isConnected {
-					Connection.connected.post(sender: self)
+					self.connected.emit()
 				}
 			case Stream.Event.hasBytesAvailable:
 				print("hasBytesAvailable")
@@ -402,6 +288,15 @@ extension Connection {
 		
 		message.write("")
 		
-		self.write(message)
+		self.write(.startup, message)
+	}
+	
+	func simpleQuery(_ query: String) {
+		self.transactionStatus = .notReady
+		
+		var message = Buffer()
+		message.write(query)
+		
+		self.write(.simpleQuery, message)
 	}
 }

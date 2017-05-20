@@ -1,5 +1,5 @@
 import XCTest
-@testable import pg
+@testable import PG
 
 class ClientTests: XCTestCase {
     func testInvalidURL() {
@@ -21,7 +21,7 @@ class ClientTests: XCTestCase {
 		let client = Client(Client.Config(user: "postgres", database: "truckee"))
 		
 		let loginExpectation = self.expectation(description: "login client")
-		_ = Client.loginSuccess.observe(object: client) { _ in
+		client.loginSuccess.once() {
 			XCTAssertTrue(client.isConnected)
 			loginExpectation.fulfill()
 		}
@@ -30,22 +30,76 @@ class ClientTests: XCTestCase {
 		client.connect(completion: { error in
 			XCTAssertNil(error)
 			
-			connectExpectation.fulfill()
+			client.connection!.readyForQuery.once() { transactionStatus in
+				XCTAssertEqual(transactionStatus, .idle)
+				XCTAssertEqual(client.connection?.transactionStatus, .idle)
+				
+				connectExpectation.fulfill()
+			}
 		})
 		
-		let readyForQueryExpectation = self.expectation(description: "readyForQuery")
-		_ = Connection.readyForQuery.observe(object: client.connection) { (payload) in
-			XCTAssertEqual(payload.transactionStatus, .idle)
-			XCTAssertEqual(client.connection?.transactionStatus, .idle)
-			readyForQueryExpectation.fulfill()
+		waitForExpectations(timeout: 5)
+	}
+	
+	func testClientQuery() {
+		let client = Client(Client.Config(user: "postgres", database: "truckee"))
+		
+		let expectation = self.expectation(description: "query")
+		
+		client.connect() { _ in
+			client.exec("SELECT * FROM posts;") { result in
+				XCTAssertEqual(result.fields.count, 4)
+				XCTAssertEqual(result.rawRows.count, 2)
+				XCTAssertEqual(result.rawRows.first?.count, 4)
+				
+				expectation.fulfill()
+			}
 		}
 		
-		waitForExpectations(timeout: 30)
+		waitForExpectations(timeout: 5)
+	}
+	
+	func testSimpleQuery() {
+		let client = Client(Client.Config(user: "postgres", database: "truckee"))
+		
+		let expectation = self.expectation(description: "query")
+		
+		client.connect(completion: { _ in
+			let connection = client.connection!
+			
+			connection.readyForQuery.once() { _ in
+				connection.simpleQuery("SELECT * FROM posts;")
+				
+				var gotDescription = false
+				connection.rowDescriptionReceived.once() { fields in
+					gotDescription = true
+					
+					XCTAssertEqual(fields.count, 4)
+				}
+				
+				var rowCount = 0
+				connection.rowReceived.observe() { fields in
+					rowCount += 1
+					
+					XCTAssertEqual(fields.count, 4)
+					
+					if rowCount == 2 {
+						XCTAssertTrue(gotDescription)
+						expectation.fulfill()
+					} else if rowCount > 2 {
+						XCTFail()
+					}
+				}
+			}
+		})
+		
+		waitForExpectations(timeout: 5)
 	}
 
 
     static var allTests: [(String, (ClientTests) -> () -> Void)] = [
         ("testExample", testInvalidURL),
         ("testConnect", testConnect),
+        ("testSimpleQuery", testSimpleQuery),
     ]
 }
