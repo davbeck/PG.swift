@@ -229,7 +229,7 @@ public final class Connection: NSObject, StreamDelegate {
 				}
 				
 				self.rowReceived.emit(rows)
-				let textRows = rows.flatMap({$0}).map({ String(bytes: $0, encoding: .utf8) })
+				let textRows = rows.flatMap({$0}).map({ String($0) })
 				print("rows: \(textRows)")
 			}
 		} catch {

@@ -45,7 +45,7 @@ struct ReadBuffer {
 		
 		data = data.suffix(from: subData.endIndex + 1) // +1 for null character itself
 		
-		guard let string = String(bytes: subData, encoding: .utf8) else { throw Error.invalidStringData }
+		guard let string = String(subData) else { throw Error.invalidStringData }
 		return string
 	}
 }

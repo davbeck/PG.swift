@@ -49,6 +49,12 @@ public class Result {
 		let typeParser: TypeParser
 		let rawRow: [DataSlice?]
 		
+		subscript(raw index: Int) -> DataSlice? {
+			get {
+				return rawRow[index]
+			}
+		}
+		
 		subscript(index: Int) -> Any? {
 			get {
 				guard let data = rawRow[index] else { return nil }
@@ -56,6 +62,12 @@ public class Result {
 				
 				return typeParser.parse(data, for: field)
 			}
+		}
+		
+		subscript(raw name: String) -> DataSlice? {
+			guard let index = fields.index(where: { $0.name == name }) else { return nil }
+			
+			return rawRow[index]
 		}
 		
 		subscript(name: String) -> Any? {

@@ -19,7 +19,7 @@ public struct TypeParser {
 		switch field.mode {
 		case .text:
 			if let parser = textParsers[field.dataTypeID] {
-				guard let text = String(bytes: data, encoding: .utf8) else { return nil }
+				guard let text = String(data) else { return nil }
 				return parser(text)
 			} else {
 				return parseText(data, withOID: field.dataTypeID)
@@ -40,7 +40,7 @@ public struct TypeParser {
 	
 	
 	public func parseText(_ data: DataSlice, withOID oid: UInt32) -> Any? {
-		guard let text = String(bytes: data, encoding: .utf8) else { return nil }
+		guard let text = String(data) else { return nil }
 		
 		switch oid {
 		case 20: // int8
