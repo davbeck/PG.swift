@@ -196,7 +196,7 @@ public final class Connection: NSObject, StreamDelegate {
 				let fieldsCount: UInt16 = try buffer.read()
 				
 				let fields: [Field] = try (0..<fieldsCount).map() { _ in
-					var field = Field()
+					let field = Field()
 					field.name = try buffer.read()
 					field.tableID = try buffer.read()
 					field.columnID = try buffer.read()
@@ -229,7 +229,7 @@ public final class Connection: NSObject, StreamDelegate {
 				}
 				
 				self.rowReceived.emit(rows)
-				let textRows = rows.flatMap({$0}).map({ String(data: Data($0), encoding: .utf8) })
+				let textRows = rows.flatMap({$0}).map({ String(bytes: $0, encoding: .utf8) })
 				print("rows: \(textRows)")
 			}
 		} catch {

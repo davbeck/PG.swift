@@ -12,6 +12,10 @@ extension Data {
 	func hexEncoded() -> String {
 		return map { String(format: "%02hhx", $0) }.joined()
 	}
+	
+	var slice: DataSlice {
+		return self[startIndex..<endIndex]
+	}
 }
 
 public typealias DataSlice = MutableRangeReplaceableRandomAccessSlice<Data>

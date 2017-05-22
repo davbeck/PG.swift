@@ -49,8 +49,11 @@ class ClientTests: XCTestCase {
 		client.connect() { _ in
 			client.exec("SELECT * FROM posts;") { result in
 				XCTAssertEqual(result.fields.count, 4)
-				XCTAssertEqual(result.rawRows.count, 2)
-				XCTAssertEqual(result.rawRows.first?.count, 4)
+				XCTAssertEqual(result.rows.count, 2)
+				XCTAssertEqual(result.rowCount, 2)
+				
+				let array = Array(result.rows.map({ Dictionary($0) }))
+				print("array: \(array)")
 				
 				expectation.fulfill()
 			}
@@ -100,6 +103,7 @@ class ClientTests: XCTestCase {
     static var allTests: [(String, (ClientTests) -> () -> Void)] = [
         ("testExample", testInvalidURL),
         ("testConnect", testConnect),
+        ("testClientQuery", testClientQuery),
         ("testSimpleQuery", testSimpleQuery),
     ]
 }

@@ -1,7 +1,7 @@
 import Foundation
 
 
-public struct Field {
+public final class Field {
 	public enum Mode: UInt16 {
 		case text = 0
 		case binary = 1
@@ -20,5 +20,12 @@ public struct Field {
 	
 	public init() {
 		
+	}
+}
+
+
+extension Field: CustomDebugStringConvertible {
+	public var debugDescription: String {
+		return "<PG.Field name=\(name), dataTypeID=\(dataTypeID), dataTypeSize=\(dataTypeSize), dataTypeModifier=\(dataTypeModifier), mode=\(mode)>"
 	}
 }

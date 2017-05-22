@@ -53,6 +53,8 @@ public final class Client: NotificationObservable {
 	
 	public let config: Config
 	
+	public var typeParser = TypeParser.default
+	
 	public var notificationObservers: [Observer] = []
 	public private(set) var connection: Connection?
 	
@@ -158,9 +160,13 @@ public final class Client: NotificationObservable {
 			rows.append(rowFields)
 		}
 		
-		connection.commandComplete.once() { _ in
-			let result = Result(fields: fields, rows: rows)
-			query.completed.emit(result)
+		connection.commandComplete.once() { commandResponse in
+			do {
+				let result = try Result(commandResponse: commandResponse, fields: fields, rows: rows, typeParser: self.typeParser)
+				query.completed.emit(result)
+			} catch {
+				// report error
+			}
 			
 			rowReceived.remove()
 		}
