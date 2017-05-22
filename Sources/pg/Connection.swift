@@ -16,12 +16,23 @@ public final class Connection: NSObject, StreamDelegate {
 		case rowDescription = 84 // T
 		case commandComplete = 67 // C
 		case dataRow = 68 // D
+		
+		case parseComplete = 49 // 1
+		case bindComplete = 50 // 2
+		
+		case errorResponse = 69 // E
 	}
 	
 	public enum RequestType: UInt8 {
 		case startup // the only message that doesn't announce it's type
 		
 		case simpleQuery = 81 // Q
+		case parseQuery = 80 // P
+		case bind = 66 // B
+		case describe = 68 // D
+		case execute = 69 // E
+		
+		case sync = 83 // S
 	}
 	
 	public enum AuthenticationResponse: UInt32 {
@@ -51,6 +62,12 @@ public final class Connection: NSObject, StreamDelegate {
 	public let rowDescriptionReceived = EventEmitter<[Field]>(name: "PG.Connection.rowDescriptionReceived")
 	public let rowReceived = EventEmitter<[DataSlice?]>(name: "PG.Connection.rowReceived")
 	public let commandComplete = EventEmitter<String>(name: "PG.Connection.commandComplete")
+	
+	public let parseComplete = EventEmitter<Void>(name: "PG.Connection.parseComplete")
+	public let bindComplete = EventEmitter<Void>(name: "PG.Connection.bindComplete")
+	
+	public let errorResponse = EventEmitter<ServerError>(name: "PG.Connection.errorResponse")
+	public let error = EventEmitter<Swift.Error>(name: "PG.Connection.error")
 	
 	
 	// MARK: - Initialization
@@ -147,7 +164,6 @@ public final class Connection: NSObject, StreamDelegate {
 			
 			
 			let byte: UInt8 = try input.read()
-			print("command: \(byte)")
 			
 			let length: UInt32 = try input.read() - 4
 			var buffer = ReadBuffer(input.read(Int(length)))
@@ -157,6 +173,7 @@ public final class Connection: NSObject, StreamDelegate {
 				print("unrecognizedMessage: \(byte)")
 				throw Error.unrecognizedMessage(byte)
 			}
+			print("command: \(messageType)")
 			
 			
 			switch messageType {
@@ -231,8 +248,32 @@ public final class Connection: NSObject, StreamDelegate {
 				self.rowReceived.emit(rows)
 				let textRows = rows.flatMap({$0}).map({ String($0) })
 				print("rows: \(textRows)")
+			case .parseComplete:
+				guard buffer.data.count == 0 else { throw Error.malformedMessage }
+				
+				parseComplete.emit()
+			case .bindComplete:
+				guard buffer.data.count == 0 else { throw Error.malformedMessage }
+				
+				bindComplete.emit()
+			case .errorResponse:
+				var error = ServerError()
+				while buffer.data.count > 0 {
+					let fieldType = try buffer.read() as UInt8
+					guard fieldType != 0 else { break }
+					
+					guard let field = ServerError.Field(rawValue: fieldType) else { continue }
+					let value = try buffer.read() as String
+					
+					error.info.append((field, value))
+				}
+				print("error: \(error)")
+				
+				self.errorResponse.emit(error)
+				self.error.emit(error)
 			}
 		} catch {
+			self.error.emit(error)
 			print("read error: \(error)")
 		}
 	}
@@ -249,10 +290,10 @@ public final class Connection: NSObject, StreamDelegate {
 					self.connected.emit()
 				}
 			case Stream.Event.hasBytesAvailable:
-				print("hasBytesAvailable")
+//				print("hasBytesAvailable")
 				self.read()
 			case Stream.Event.hasSpaceAvailable:
-				print("hasSpaceAvailable")
+//				print("hasSpaceAvailable")
 				self.write()
 			case Stream.Event.errorOccurred:
 				print("errorOccurred: \(stream.streamError!) \(stream)")
@@ -298,5 +339,76 @@ extension Connection {
 		message.write(query)
 		
 		self.write(.simpleQuery, message)
+	}
+	
+	func parse(name: String = "", query: String, types: [Int32] = []) {
+		var message = Buffer()
+		
+		message.write(name)
+		message.write(query)
+		message.write(UInt16(types.count))
+		for type in types {
+			message.write(type)
+		}
+		
+		self.write(.parseQuery, message)
+	}
+	
+	func bind(name: String = "", statementName: String = "", parameters: [Any?] = []) {
+		var message = Buffer()
+		
+		message.write(name)
+		message.write(statementName)
+		
+		message.write(UInt16(parameters.count))
+		for _ in parameters {
+			message.write(UInt16(Field.Mode.text.rawValue)) // TODO: select best format
+		}
+		
+		message.write(UInt16(parameters.count))
+		for parameter in parameters {
+			if let parameter = parameter {
+				let data = String(describing: parameter).data()
+				message.write(Int32(data.count))
+				message.write(data)
+			} else {
+				message.write(Int16(-1)) // null
+			}
+		}
+		
+		message.write(UInt16(0))
+		
+		self.write(.bind, message)
+	}
+	
+	func describeStatement(name: String = "") {
+		var message = Buffer()
+		
+		message.write(Int8(83))
+		message.write(name)
+		
+		self.write(.describe, message)
+	}
+	
+	func describePortal(name: String = "") {
+		var message = Buffer()
+		
+		message.write(Int8(80))
+		message.write(name)
+		
+		self.write(.describe, message)
+	}
+	
+	func execute(portal: String = "", rows: UInt32 = 0) {
+		var message = Buffer()
+		
+		message.write(portal)
+		message.write(rows)
+		
+		self.write(.execute, message)
+	}
+	
+	func sync() {
+		self.write(.sync, Buffer())
 	}
 }

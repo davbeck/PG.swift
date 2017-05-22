@@ -41,19 +41,24 @@ class ClientTests: XCTestCase {
 		waitForExpectations(timeout: 5)
 	}
 	
-	func testClientQuery() {
+	func testSimpleQuery() {
 		let client = Client(Client.Config(user: "postgres", database: "truckee"))
 		
 		let expectation = self.expectation(description: "query")
 		
 		client.connect() { _ in
 			client.exec("SELECT * FROM posts;") { result in
-				XCTAssertEqual(result.fields.count, 4)
-				XCTAssertEqual(result.rows.count, 2)
-				XCTAssertEqual(result.rowCount, 2)
-				
-				let array = Array(result.rows.map({ Dictionary($0) }))
-				print("array: \(array)")
+				switch result {
+				case .success(let result):
+					XCTAssertEqual(result.fields.count, 4)
+					XCTAssertEqual(result.rows.count, 2)
+					XCTAssertEqual(result.rowCount, 2)
+					
+					let array = Array(result.rows.map({ Dictionary($0) }))
+					print("array: \(array)")
+				case .failure(let error):
+					XCTFail("error: \(error)")
+				}
 				
 				expectation.fulfill()
 			}
@@ -62,48 +67,41 @@ class ClientTests: XCTestCase {
 		waitForExpectations(timeout: 5)
 	}
 	
-	func testSimpleQuery() {
+	func testQueryBindings() {
 		let client = Client(Client.Config(user: "postgres", database: "truckee"))
 		
 		let expectation = self.expectation(description: "query")
 		
-		client.connect(completion: { _ in
-			let connection = client.connection!
-			
-			connection.readyForQuery.once() { _ in
-				connection.simpleQuery("SELECT * FROM posts;")
-				
-				var gotDescription = false
-				connection.rowDescriptionReceived.once() { fields in
-					gotDescription = true
+		client.connect() { _ in
+			let id = UUID(uuidString: "A0EEBC99-9C0B-4EF8-BB6D-6BB9BD380A11")
+			let query = Query("SELECT * FROM posts WHERE id = $1;", id)
+			client.exec(query) { result in
+				switch result {
+				case .success(let result):
+					XCTAssertEqual(result.fields.count, 4)
+					XCTAssertEqual(result.rows.count, 1)
+					XCTAssertEqual(result.rowCount, 1)
 					
-					XCTAssertEqual(fields.count, 4)
+					XCTAssertEqual(result.rows[0]["id"] as? UUID, id)
+					
+					let array = Array(result.rows.map({ Dictionary($0) }))
+					print("array: \(array)")
+				case .failure(let error):
+					XCTFail("error: \(error)")
 				}
 				
-				var rowCount = 0
-				connection.rowReceived.observe() { fields in
-					rowCount += 1
-					
-					XCTAssertEqual(fields.count, 4)
-					
-					if rowCount == 2 {
-						XCTAssertTrue(gotDescription)
-						expectation.fulfill()
-					} else if rowCount > 2 {
-						XCTFail()
-					}
-				}
+				expectation.fulfill()
 			}
-		})
+		}
 		
 		waitForExpectations(timeout: 5)
 	}
-
+	
 
     static var allTests: [(String, (ClientTests) -> () -> Void)] = [
         ("testExample", testInvalidURL),
         ("testConnect", testConnect),
-        ("testClientQuery", testClientQuery),
         ("testSimpleQuery", testSimpleQuery),
+        ("testQueryBindings", testQueryBindings),
     ]
 }

@@ -130,7 +130,7 @@ public final class Client: NotificationObservable {
 	
 	private var queryQueue: [Query] = []
 	
-	public func exec(_ query: Query, callback: ((Result) -> Void)?) {
+	public func exec(_ query: Query, callback: ((Result<QueryResult>) -> Void)?) {
 		if let callback = callback {
 			query.completed.once(callback)
 		}
@@ -147,30 +147,66 @@ public final class Client: NotificationObservable {
 			dispatchPrecondition(condition: .onQueue(self.queue))
 		}
 		
-		
 		guard let connection = self.connection, connection.transactionStatus == .idle else { return }
 		guard let query = queryQueue.first else { return }
 		queryQueue.removeFirst()
 		
+		
 		var fields: [Field] = []
-		connection.rowDescriptionReceived.once() { fields = $0 }
+		let rowDescriptionReceived = connection.rowDescriptionReceived.once() { fields = $0 }
 		
 		var rows: [[DataSlice?]] = []
 		let rowReceived = connection.rowReceived.observe() { rowFields in
 			rows.append(rowFields)
 		}
 		
-		connection.commandComplete.once() { commandResponse in
+		
+		var errorEvent: EventEmitter<Swift.Error>.Observer?
+		var commandComplete: EventEmitter<String>.Observer?
+		
+		errorEvent = connection.error.once({ error in
+			query.completed.emit(Result.failure(error))
+			
+			rowDescriptionReceived.remove()
+			rowReceived.remove()
+			commandComplete?.remove()
+		})
+		
+		commandComplete = connection.commandComplete.once() { commandResponse in
 			do {
-				let result = try Result(commandResponse: commandResponse, fields: fields, rows: rows, typeParser: self.typeParser)
-				query.completed.emit(result)
+				let result = try QueryResult(commandResponse: commandResponse, fields: fields, rows: rows, typeParser: self.typeParser)
+				query.completed.emit(Result.success(result))
 			} catch {
-				// report error
+				query.completed.emit(Result.failure(error))
 			}
 			
+			rowDescriptionReceived.remove()
 			rowReceived.remove()
+			errorEvent?.remove()
 		}
 		
+		
+		self.executeExtendedQuery(query)
+//		self.executeSimpleQuery(query)
+	}
+	
+	private func executeSimpleQuery(_ query: Query) {
+		guard let connection = self.connection else { return }
+		
 		connection.simpleQuery(query.string)
+	}
+	
+	private func executeExtendedQuery(_ query: Query) {
+		guard let connection = self.connection else { return }
+		
+		connection.parse(query: query.string)
+		
+		connection.bind(parameters: query.bindings)
+		
+		connection.describePortal()
+		
+		connection.execute()
+		
+		connection.sync()
 	}
 }
