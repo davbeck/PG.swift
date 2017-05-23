@@ -128,16 +128,11 @@ public final class Client: NotificationObservable {
 	
 	// MARK: - Query
 	
-	private var queryQueue: [Query] = []
+	private var queryQueue: [() -> Void] = []
 	
-	public func exec(_ query: Query, callback: ((Result<QueryResult>) -> Void)?) {
-		if let callback = callback {
-			query.completed.once(callback)
-		}
-		
+	private func enqueuQueryOperation(_ queryOperation: @escaping () -> Void) {
 		queue.async {
-			self.queryQueue.append(query)
-
+			self.queryQueue.append(queryOperation)
 			self.executeQuery()
 		}
 	}
@@ -148,46 +143,59 @@ public final class Client: NotificationObservable {
 		}
 		
 		guard let connection = self.connection, connection.transactionStatus == .idle else { return }
-		guard let query = queryQueue.first else { return }
-		queryQueue.removeFirst()
+		guard queryQueue.count > 0 else { return }
+		let query = queryQueue.removeFirst()
 		
 		
-		var fields: [Field] = []
-		let rowDescriptionReceived = connection.rowDescriptionReceived.once() { fields = $0 }
-		
-		var rows: [[DataSlice?]] = []
-		let rowReceived = connection.rowReceived.observe() { rowFields in
-			rows.append(rowFields)
+		query()
+	}
+	
+	
+	public func exec(_ query: Query, callback: ((Result<QueryResult>) -> Void)?) {
+		if let callback = callback {
+			query.completed.once(callback)
 		}
 		
-		
-		var errorEvent: EventEmitter<Swift.Error>.Observer?
-		var commandComplete: EventEmitter<String>.Observer?
-		
-		errorEvent = connection.error.once({ error in
-			query.completed.emit(Result.failure(error))
+		enqueuQueryOperation {
+			guard let connection = self.connection else { return }
 			
-			rowDescriptionReceived.remove()
-			rowReceived.remove()
-			commandComplete?.remove()
-		})
-		
-		commandComplete = connection.commandComplete.once() { commandResponse in
-			do {
-				let result = try QueryResult(commandResponse: commandResponse, fields: fields, rows: rows, typeParser: self.typeParser)
-				query.completed.emit(Result.success(result))
-			} catch {
-				query.completed.emit(Result.failure(error))
+			var fields: [Field] = []
+			let rowDescriptionReceived = connection.rowDescriptionReceived.once() { fields = $0 }
+			
+			var rows: [[DataSlice?]] = []
+			let rowReceived = connection.rowReceived.observe() { rowFields in
+				rows.append(rowFields)
 			}
 			
-			rowDescriptionReceived.remove()
-			rowReceived.remove()
-			errorEvent?.remove()
+			
+			var errorEvent: EventEmitter<Swift.Error>.Observer?
+			var commandComplete: EventEmitter<String>.Observer?
+			
+			errorEvent = connection.error.once({ error in
+				query.completed.emit(Result.failure(error))
+				
+				rowDescriptionReceived.remove()
+				rowReceived.remove()
+				commandComplete?.remove()
+			})
+			
+			commandComplete = connection.commandComplete.once() { commandResponse in
+				do {
+					let result = try QueryResult(commandResponse: commandResponse, fields: fields, rows: rows, typeParser: self.typeParser)
+					query.completed.emit(Result.success(result))
+				} catch {
+					query.completed.emit(Result.failure(error))
+				}
+				
+				rowDescriptionReceived.remove()
+				rowReceived.remove()
+				errorEvent?.remove()
+			}
+			
+			
+			self.executeExtendedQuery(query)
+			//		self.executeSimpleQuery(query)
 		}
-		
-		
-		self.executeExtendedQuery(query)
-//		self.executeSimpleQuery(query)
 	}
 	
 	private func executeSimpleQuery(_ query: Query) {
@@ -199,14 +207,46 @@ public final class Client: NotificationObservable {
 	private func executeExtendedQuery(_ query: Query) {
 		guard let connection = self.connection else { return }
 		
-		connection.parse(query: query.string)
+		if query.statement == nil {
+			// if the statement has already been prepared we can skip this step
+			let types = query.currentBindingTypes.map({ $0?.pgTypes.first ?? 0 })
+			connection.parse(query: query.string, types: types)
+		}
 		
-		connection.bind(parameters: query.bindings)
+		connection.bind(statementName: query.statement?.name ?? "", parameters: query.bindings)
 		
 		connection.describePortal()
 		
 		connection.execute()
 		
 		connection.sync()
+	}
+	
+	
+	public func prepare(_ query: Query, callback: ((Result<Query.Statement>) -> Void)?) {
+		enqueuQueryOperation {
+			guard let connection = self.connection else { return }
+			
+			let statement = query.createStatement()
+			
+			var parseComplete: EventEmitter<Void>.Observer?
+			var errorResponse: EventEmitter<ServerError>.Observer? = nil
+			
+			parseComplete = connection.parseComplete.once() {
+				callback?(Result.success(statement))
+				
+				errorResponse?.remove()
+			}
+			
+			errorResponse = connection.errorResponse.once({ error in
+				callback?(Result.failure(error))
+				
+				parseComplete?.remove()
+			})
+			
+			connection.parse(name: statement.name, query: query.string)
+			
+			connection.sync()
+		}
 	}
 }

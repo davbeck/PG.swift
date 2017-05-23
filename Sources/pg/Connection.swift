@@ -217,7 +217,7 @@ public final class Connection: NSObject, StreamDelegate {
 					field.name = try buffer.read()
 					field.tableID = try buffer.read()
 					field.columnID = try buffer.read()
-					field.dataTypeID = try buffer.read()
+					field.dataTypeID = try OID(buffer.read())
 					field.dataTypeSize = try buffer.read()
 					field.dataTypeModifier = try buffer.read()
 					field.mode = try Field.Mode(rawValue: buffer.read()) ?? .text
@@ -341,20 +341,20 @@ extension Connection {
 		self.write(.simpleQuery, message)
 	}
 	
-	func parse(name: String = "", query: String, types: [Int32] = []) {
+	func parse(name: String = "", query: String, types: [OID] = []) {
 		var message = Buffer()
 		
 		message.write(name)
 		message.write(query)
 		message.write(UInt16(types.count))
 		for type in types {
-			message.write(type)
+			message.write(type.rawValue)
 		}
 		
 		self.write(.parseQuery, message)
 	}
 	
-	func bind(name: String = "", statementName: String = "", parameters: [Any?] = []) {
+	func bind(name: String = "", statementName: String = "", parameters: [PostgresRepresentable?] = []) {
 		var message = Buffer()
 		
 		message.write(name)
@@ -367,8 +367,8 @@ extension Connection {
 		
 		message.write(UInt16(parameters.count))
 		for parameter in parameters {
-			if let parameter = parameter {
-				let data = String(describing: parameter).data()
+			if let parameter = parameter, let text = parameter.pgText {
+				let data = text.data()
 				message.write(Int32(data.count))
 				message.write(data)
 			} else {

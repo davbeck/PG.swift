@@ -12,7 +12,7 @@ public final class Field {
 	public var tableID: UInt32 = 0
 	public var columnID: UInt16 = 0
 	
-	public var dataTypeID: UInt32 = 0
+	public var dataTypeID: OID = 0
 	public var dataTypeSize: Int16 = 0
 	public var dataTypeModifier: UInt32 = 0
 	

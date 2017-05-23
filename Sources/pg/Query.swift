@@ -4,35 +4,68 @@ import Foundation
 public final class Query {
 	public enum Error: Swift.Error {
 		case wrongNumberOfBindings
-		case mismatchedBindingType(value: Any?, index: Int, expectedType: Any.Type)
+		case mismatchedBindingType(value: Any?, index: Int, expectedType: Any.Type?)
 	}
 	
+	
+	public final class Statement {
+		public let name: String
+		public let bindingTypes: [PostgresRepresentable.Type?]
+		
+		init(name: String = UUID().uuidString, bindingTypes: [PostgresRepresentable.Type?]) {
+			self.name = name
+			self.bindingTypes = bindingTypes
+		}
+	}
+	
+	public var statement: Statement?
+	
+	public var currentBindingTypes: [PostgresRepresentable.Type?] {
+		return self.bindings.map({ value in
+			if let value = value {
+				return type(of: value)
+			} else {
+				// unfortunately swift doesn't keep track of nil types
+				// maybe in swift 4 we can conform Optional to PostgresRepresentable when it's wrapped type is?
+				return nil
+			}
+		})
+	}
+	
+	public func createStatement(withName name: String = UUID().uuidString) -> Statement {
+		let statement = Statement(name: name, bindingTypes: self.currentBindingTypes)
+		self.statement = statement
+		
+		return statement
+	}
+	
+	
 	public let string: String
-	public let bindingTypes: [Any.Type]
-	public private(set) var bindings: [Any?]
+	public private(set) var bindings: [PostgresRepresentable?]
 	
 	public let completed = EventEmitter<Result<QueryResult>>()
 	
-	public func update(bindings: [Any?]) throws {
-		guard bindings.count == bindingTypes.count else { throw Error.wrongNumberOfBindings }
-		
-		// swift 4 should support 3 way zip
-		for (index, (binding, type)) in zip(bindings.indices, zip(bindings, bindingTypes)) {
-			if type(of: binding) != type {
-				throw Error.mismatchedBindingType(value: binding, index: index, expectedType: type)
+	public func update(bindings: [PostgresRepresentable?]) throws {
+		if let statement = statement {
+			guard bindings.count == statement.bindingTypes.count else { throw Error.wrongNumberOfBindings }
+			
+			// swift 4 should support 3 way zip
+			for (index, (binding, type)) in zip(bindings.indices, zip(bindings, statement.bindingTypes)) {
+				if let binding = binding, type(of: binding) != type {
+					throw Error.mismatchedBindingType(value: binding, index: index, expectedType: type)
+				}
 			}
 		}
 		
 		self.bindings = bindings
 	}
 	
-	public init(_ string: String, bindings: [Any?] = []) {
+	public init(_ string: String, bindings: [PostgresRepresentable?] = []) {
 		self.string = string
 		self.bindings = bindings
-		self.bindingTypes = bindings.map({ type(of: $0) })
 	}
 	
-	public convenience init(_ string: String, _ bindings: Any?...) {
+	public convenience init(_ string: String, _ bindings: PostgresRepresentable?...) {
 		self.init(string, bindings: bindings)
 	}
 }

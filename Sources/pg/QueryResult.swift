@@ -45,17 +45,17 @@ public class QueryResult {
 	
 	
 	public struct Row {
-		let fields: [Field]
-		let typeParser: TypeParser
+		public let fields: [Field]
+		public let typeParser: TypeParser
 		let rawRow: [DataSlice?]
 		
-		subscript(raw index: Int) -> DataSlice? {
+		public subscript(raw index: Int) -> DataSlice? {
 			get {
 				return rawRow[index]
 			}
 		}
 		
-		subscript(index: Int) -> Any? {
+		public subscript(index: Int) -> Any? {
 			get {
 				guard let data = rawRow[index] else { return nil }
 				let field = fields[index]
@@ -64,16 +64,33 @@ public class QueryResult {
 			}
 		}
 		
-		subscript(raw name: String) -> DataSlice? {
+		public subscript(raw name: String) -> DataSlice? {
 			guard let index = fields.index(where: { $0.name == name }) else { return nil }
 			
 			return rawRow[index]
 		}
 		
-		subscript(name: String) -> Any? {
+		public subscript(name: String) -> Any? {
 			guard let index = fields.index(where: { $0.name == name }) else { return nil }
 			
 			return self[index]
+		}
+		
+		/// Get a value for a given column as a specific type
+		///
+		/// some types can handle multiple postgres types (like Int for all sizes of pg ints). Using this method, it can return the result as a specific type, assuming it is compatable with the column type.
+		public func value<T: PostgresRepresentable>(at index: Int) -> T? {
+			// swift 4 should introduce generic subscripts
+			guard let data = rawRow[index] else { return nil }
+			let field = fields[index]
+			
+			return typeParser.parse(data, for: field)
+		}
+		
+		public func value<T: PostgresRepresentable>(for name: String) -> T? {
+			guard let index = fields.index(where: { $0.name == name }) else { return nil }
+			
+			return value(at: index)
 		}
 	}
 }

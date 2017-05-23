@@ -18,7 +18,7 @@ class ClientTests: XCTestCase {
     }
 	
 	func testConnect() {
-		let client = Client(Client.Config(user: "postgres", database: "truckee"))
+		let client = Client(Client.Config(user: "postgres", database: "pg_swift_tests"))
 		
 		let loginExpectation = self.expectation(description: "login client")
 		client.loginSuccess.once() {
@@ -42,15 +42,15 @@ class ClientTests: XCTestCase {
 	}
 	
 	func testSimpleQuery() {
-		let client = Client(Client.Config(user: "postgres", database: "truckee"))
+		let client = Client(Client.Config(user: "postgres", database: "pg_swift_tests"))
 		
 		let expectation = self.expectation(description: "query")
 		
 		client.connect() { _ in
-			client.exec("SELECT * FROM posts;") { result in
+			client.exec("SELECT * FROM example;") { result in
 				switch result {
 				case .success(let result):
-					XCTAssertEqual(result.fields.count, 4)
+					XCTAssertEqual(result.fields.count, 19)
 					XCTAssertEqual(result.rows.count, 2)
 					XCTAssertEqual(result.rowCount, 2)
 					
@@ -68,21 +68,35 @@ class ClientTests: XCTestCase {
 	}
 	
 	func testQueryBindings() {
-		let client = Client(Client.Config(user: "postgres", database: "truckee"))
+		let client = Client(Client.Config(user: "postgres", database: "pg_swift_tests"))
 		
 		let expectation = self.expectation(description: "query")
 		
 		client.connect() { _ in
 			let id = UUID(uuidString: "A0EEBC99-9C0B-4EF8-BB6D-6BB9BD380A11")
-			let query = Query("SELECT * FROM posts WHERE id = $1;", id)
+			let query = Query("SELECT * FROM example WHERE e_uuid = $1;", id)
 			client.exec(query) { result in
 				switch result {
 				case .success(let result):
-					XCTAssertEqual(result.fields.count, 4)
+					XCTAssertEqual(result.fields.count, 19)
 					XCTAssertEqual(result.rows.count, 1)
 					XCTAssertEqual(result.rowCount, 1)
 					
-					XCTAssertEqual(result.rows[0]["id"] as? UUID, id)
+					XCTAssertEqual(result.rows[0]["e_uuid"] as? UUID, id)
+					
+					XCTAssertEqual(result.rows[0]["e_text"] as? String, "Hello World")
+					XCTAssertEqual(result.rows[0]["e_varchar_100"] as? String, "Hello World")
+					XCTAssertEqual(result.rows[0]["e_varchar"] as? String, "Hello World")
+					XCTAssertEqual(result.rows[0]["e_char"] as? String, "H")
+					
+					XCTAssertEqual(result.rows[0]["e_int2"] as? Int16, 100)
+					XCTAssertEqual(result.rows[0]["e_int4"] as? Int32, 65635)
+					XCTAssertEqual(result.rows[0]["e_int8"] as? Int64, 4294967395)
+					XCTAssertEqual(result.rows[0].value(for: "e_int8"), 4294967395)
+					XCTAssertEqual(result.rows[0].value(for: "e_int8") as Int?, 4294967395)
+					XCTAssertEqual(result.rows[0]["e_oid"] as? OID, 65635)
+					
+					XCTAssertEqual(result.rows[0]["e_timestamp"] as? Date, Date(timeIntervalSince1970: 1495465975.3329999))
 					
 					let array = Array(result.rows.map({ Dictionary($0) }))
 					print("array: \(array)")
@@ -97,11 +111,114 @@ class ClientTests: XCTestCase {
 		waitForExpectations(timeout: 5)
 	}
 	
+	func testBindingUpdate() {
+		let client = Client(Client.Config(user: "postgres", database: "pg_swift_tests"))
+		
+		let expectation = self.expectation(description: "query")
+		
+		client.connect() { _ in
+			let idA = UUID(uuidString: "A0EEBC99-9C0B-4EF8-BB6D-6BB9BD380A11")
+			let idB = UUID(uuidString: "b7ab0ffc-9367-4fe6-a737-2fa4e5de58d3")
+			
+			let query = Query("SELECT * FROM example WHERE e_uuid = $1;", idA)
+			client.exec(query) { result in
+				switch result {
+				case .success(let result):
+					XCTAssertEqual(result.fields.count, 19)
+					XCTAssertEqual(result.rows.count, 1)
+					XCTAssertEqual(result.rowCount, 1)
+					
+					XCTAssertEqual(result.rows[0]["e_uuid"] as? UUID, idA)
+					
+					let array = Array(result.rows.map({ Dictionary($0) }))
+					print("array: \(array)")
+					
+					
+					try! query.update(bindings: [idB])
+					client.exec(query) { result in
+						switch result {
+						case .success(let result):
+							XCTAssertEqual(result.fields.count, 19)
+							XCTAssertEqual(result.rows.count, 1)
+							XCTAssertEqual(result.rowCount, 1)
+							
+							XCTAssertEqual(result.rows[0]["e_uuid"] as? UUID, idB)
+							
+							let array = Array(result.rows.map({ Dictionary($0) }))
+							print("array: \(array)")
+						case .failure(let error):
+							XCTFail("error: \(error)")
+						}
+						
+						expectation.fulfill()
+					}
+				case .failure(let error):
+					XCTFail("error: \(error)")
+				}
+			}
+		}
+		
+		waitForExpectations(timeout: 5)
+	}
+	
+	func testPreparedStatement() {
+		let client = Client(Client.Config(user: "postgres", database: "pg_swift_tests"))
+		
+		let expectation = self.expectation(description: "query")
+		
+		client.connect() { _ in
+			let idA = UUID(uuidString: "A0EEBC99-9C0B-4EF8-BB6D-6BB9BD380A11")
+			let idB = UUID(uuidString: "b7ab0ffc-9367-4fe6-a737-2fa4e5de58d3")
+			
+			let query = Query("SELECT * FROM example WHERE e_uuid = $1;", idA)
+			client.prepare(query) { result in
+				XCTAssertNil(result.error)
+				
+				client.exec(query) { result in
+					switch result {
+					case .success(let result):
+						XCTAssertEqual(result.fields.count, 19)
+						XCTAssertEqual(result.rows.count, 1)
+						XCTAssertEqual(result.rowCount, 1)
+						
+						XCTAssertEqual(result.rows[0]["e_uuid"] as? UUID, idA)
+						
+						
+						try! query.update(bindings: [idB])
+						client.exec(query) { result in
+							switch result {
+							case .success(let result):
+								XCTAssertEqual(result.fields.count, 19)
+								XCTAssertEqual(result.rows.count, 1)
+								XCTAssertEqual(result.rowCount, 1)
+								
+								XCTAssertEqual(result.rows[0]["e_uuid"] as? UUID, idB)
+								
+								let array = Array(result.rows.map({ Dictionary($0) }))
+								print("array: \(array)")
+							case .failure(let error):
+								XCTFail("error: \(error)")
+							}
+							
+							expectation.fulfill()
+						}
+					case .failure(let error):
+						XCTFail("error: \(error)")
+					}
+				}
+			}
+		}
+		
+		waitForExpectations(timeout: 5)
+	}
+	
 
     static var allTests: [(String, (ClientTests) -> () -> Void)] = [
         ("testExample", testInvalidURL),
         ("testConnect", testConnect),
         ("testSimpleQuery", testSimpleQuery),
         ("testQueryBindings", testQueryBindings),
+        ("testBindingUpdate", testBindingUpdate),
+        ("testPreparedStatement", testPreparedStatement),
     ]
 }
