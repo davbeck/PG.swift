@@ -304,30 +304,23 @@ public final class Client {
 	
 	/// Explicitly prepare a query for execution
 	///
-	/// If the query does not already have a statement, one is created with default values. If the statement has already been prepared on the current connection, this method returns without interacting with the server. Normally you would not call this method. Instead you would call `Query.preparedStatements` to indicate you wanted to reuse the query and then call `Client.exec`, which will implicitly prepare the query the first time it is called. You can use this method if you want to aggresively process the query on the server beforehand.
+	/// If the statement has already been prepared on the current connection, this method returns without interacting with the server. Normally you would not call this method. Instead you would call `Query.preparedStatements` to indicate you wanted to reuse the query and then call `Client.exec`, which will implicitly prepare the query the first time it is called. You can use this method if you want to aggresively process the query on the server beforehand.
 	///
 	/// See `Query.createStatement` for more information on prepared statements.
 	///
 	/// - Parameters:
-	///   - query: The query to prepare.
+	///   - statement: The statement to prepare.
 	///   - callback: Called when the query has been prepared, or an error occured.
-	public func prepare(_ query: Query, callback: ((Result<Query.Statement>) -> Void)?) {
+	public func prepare(_ statement: Query.Statement, callback: ((Swift.Error?) -> Void)?) {
 		enqueuQueryOperation { connection in
-			let statement: Query.Statement
-			if let existing = query.statement {
-				statement = existing
-			} else {
-				statement = query.createStatement()
-			}
-			
 			if self.preparedStatements.contains(statement) {
 				// already prepared on this connection
-				callback?(Result.success(statement))
+				callback?(nil)
 				return
 			}
 			
 			guard !self.preparedStatements.contains(where: { $0.name == statement.name }) else {
-				callback?(Result.failure(Error.statementWithNameAlreadyExists))
+				callback?(Error.statementWithNameAlreadyExists)
 				return
 			}
 			self.preparedStatements.append(statement)
@@ -337,13 +330,13 @@ public final class Client {
 			var errorResponse: EventEmitter<ServerError>.Observer? = nil
 			
 			parseComplete = connection.parseComplete.once() {
-				callback?(Result.success(statement))
+				callback?(nil)
 				
 				errorResponse?.remove()
 			}
 			
 			errorResponse = connection.errorResponse.once({ error in
-				callback?(Result.failure(error))
+				callback?(error)
 				
 				parseComplete?.remove()
 			})
@@ -351,7 +344,7 @@ public final class Client {
 			
 			connection.parse(
 				name: statement.name,
-				query: query.string,
+				query: statement.string,
 				types: statement.bindingTypes.map({ $0?.pgTypes.first ?? 0 })
 			)
 			

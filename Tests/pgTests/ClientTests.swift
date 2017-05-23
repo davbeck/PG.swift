@@ -121,7 +121,7 @@ class ClientTests: XCTestCase {
 			let idA = UUID(uuidString: "A0EEBC99-9C0B-4EF8-BB6D-6BB9BD380A11")
 			let idB = UUID(uuidString: "b7ab0ffc-9367-4fe6-a737-2fa4e5de58d3")
 			
-			let query = Query("SELECT * FROM example WHERE e_uuid = $1;", idA)
+			var query = Query("SELECT * FROM example WHERE e_uuid = $1;", idA)
 			client.exec(query) { result in
 				switch result {
 				case .success(let result):
@@ -171,9 +171,10 @@ class ClientTests: XCTestCase {
 			let idA = UUID(uuidString: "A0EEBC99-9C0B-4EF8-BB6D-6BB9BD380A11")
 			let idB = UUID(uuidString: "b7ab0ffc-9367-4fe6-a737-2fa4e5de58d3")
 			
-			let query = Query("SELECT * FROM example WHERE e_uuid = $1;", idA)
-			client.prepare(query) { result in
-				XCTAssertNil(result.error)
+			var query = Query("SELECT * FROM example WHERE e_uuid = $1;", idA)
+			let statement = query.createStatement()
+			client.prepare(statement) { error in
+				XCTAssertNil(error)
 				
 				client.exec(query) { result in
 					switch result {
