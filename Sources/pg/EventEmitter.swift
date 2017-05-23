@@ -85,7 +85,12 @@ public class EventEmitter<Payload> {
 			}
 			
 			if let name = self.notificationName {
-				NotificationCenter.default.post(name: name, object: self, userInfo: nil)
+				var userInfo: [AnyHashable:Any] = [:]
+				if let payload = payload as? NotificationPayload {
+					userInfo = payload.notificationUserInfo
+				}
+				
+				NotificationCenter.default.post(name: name, object: self, userInfo: userInfo)
 			}
 		}
 	}

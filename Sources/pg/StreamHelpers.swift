@@ -20,6 +20,12 @@ extension Data {
 	var slice: DataSlice {
 		return self[startIndex..<endIndex]
 	}
+	
+	init<T: NetworkOrderable>(bytesFrom value: T) {
+		var value = value.bigEndian
+		
+		self.init(buffer: UnsafeBufferPointer(start: &value, count: 1))
+	}
 }
 
 public typealias DataSlice = MutableRangeReplaceableRandomAccessSlice<Data>
@@ -80,19 +86,17 @@ extension InputStream {
 		return T(bigEndian: value)
 	}
 	
-	func read(_ count: Int) -> Data {
-		var data = Data()
+	func read(_ count: Int) -> Data? {
+		var data = Data(count: count)
 		guard count > 0 else { return data }
 		
-		let bufferSize = 1024
-		let buffer = UnsafeMutablePointer<UInt8>.allocate(capacity: bufferSize)
-		while data.count < count {
-			let dataToRead = min(count - data.count, bufferSize)
-			let readLength = self.read(buffer, maxLength: dataToRead)
-			data.append(buffer, count: readLength)
-			guard readLength == dataToRead else { break }
+		let readLength = data.withUnsafeMutableBytes { (bytes: UnsafeMutablePointer<UInt8>) -> Int in
+			self.read(bytes, maxLength: count)
 		}
-		buffer.deinitialize()
+		
+		if readLength != count {
+			return nil
+		}
 		
 		return data
 	}

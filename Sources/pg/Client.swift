@@ -138,42 +138,53 @@ public final class Client {
 	/// Connect to the server
 	///
 	/// - Parameter completion: Called once a connection is established. Note that this does not mean that the client has authenticated. Use the `Client.loginSuccess` event to watch for that. This is equivalent to `Client.connected`.
-	public func connect(completion: ((Error?) -> Void)?) {
-		var completion = completion // we only want to call this once, so remove it when we do
-		var input: InputStream?
-		var output: OutputStream?
-		
-		Stream.getStreamsToHost(withName: config.host, port: config.port, inputStream: &input, outputStream: &output)
-		
-		if let input = input, let output = output {
-			let connection = Connection(input: input, output: output)
-			self.connection = connection
-			
-			connection.loginSuccess.observe(on: self.queue) {
-				completion?(nil)
-				completion = nil
-				
-				self.loginSuccess.emit()
-			}
-			
-			connection.connected.observe {
-				self.connected.emit()
-			}
-			
-			connection.readyForQuery.observe(on: self.queue) { _ in
-				self.executeQuery()
-			}
-			
-			for stream in [input, output] {
-				stream.schedule(in: .current, forMode: .defaultRunLoopMode)
-				stream.open()
-			}
-			
-			connection.sendStartup(user: config.user, database: config.database)
-		} else {
+	public func connect(completion: ((Swift.Error?) -> Void)?) {
+		guard let socket = StreamSocket(host: config.host, port: config.port) else {
 			completion?(Error.connectionFailure)
+			return
+		}
+		self.connect(with: socket, completion: completion)
+	}
+	
+	public func connect(with socket: Socket, completion: ((Swift.Error?) -> Void)?) {
+		if !socket.isConnected {
+			socket.connected.once {
+				self.startup(with: socket, completion: completion)
+			}
+			
+			socket.connect()
+		} else {
+			self.startup(with: socket, completion: completion)
+		}
+	}
+	
+	private func startup(with socket: Socket, completion: ((Swift.Error?) -> Void)?) {
+		var completion = completion // we only want to call this once, so remove it when we do
+		
+		precondition(socket.isConnected)
+		self.connected.emit()
+		
+		let connection = Connection(socket: socket)
+		self.connection = connection
+		
+		connection.loginSuccess.once(on: self.queue) {
+			completion?(nil)
+			completion = nil
+			
+			self.loginSuccess.emit()
+		}
+		
+		connection.error.once(on: self.queue) { (error) in
+			completion?(error)
 			completion = nil
 		}
+		
+		connection.readyForQuery.observe(on: self.queue) { _ in
+			self.executeQuery()
+		}
+		
+		
+		connection.sendStartup(user: config.user, database: config.database)
 	}
 	
 	
