@@ -8,17 +8,21 @@ public final class Query {
 	}
 	
 	
-	public final class Statement {
+	public final class Statement: Equatable {
 		public let name: String
 		public let bindingTypes: [PostgresRepresentable.Type?]
 		
-		init(name: String = UUID().uuidString, bindingTypes: [PostgresRepresentable.Type?]) {
+		fileprivate init(name: String = UUID().uuidString, bindingTypes: [PostgresRepresentable.Type?]) {
 			self.name = name
 			self.bindingTypes = bindingTypes
 		}
+		
+		public static func == (_ lhs: Statement, _ rhs: Statement) -> Bool {
+			return lhs === rhs
+		}
 	}
 	
-	public var statement: Statement?
+	private(set) public var statement: Statement?
 	
 	public var currentBindingTypes: [PostgresRepresentable.Type?] {
 		return self.bindings.map({ value in
@@ -32,6 +36,16 @@ public final class Query {
 		})
 	}
 	
+	/// Create and return a new prepared statement for the receiver
+	///
+	/// Normally a query is prepared and excecuted at the same time. However, if you have a query that gets reused often, even if it's bindings change between calls, you can optimize performance by reusing the same query and statement.
+	///
+	/// This method generates a statement locally, but does not prepare it with the server. Creating a statement indicates to the Client that the query should be reused. If a query has a statement set, calling `Client.exec` will automatically prepare the statement, and subsequent calls to exec on the same connection will reuse the statement. You can also implicitly prepare it using `Client.prepare`, which will call this method automatically if there is no existing statement to prepare.
+	///
+	/// Note that once a query has a statement set, it's binding types are locked in and an error will be thrown if you try to update them with different types.
+	///
+	/// - Parameter name: The name to be used for the statement on the server. Names must be uique accross connections and it is recommended that you use the default, which will generate a UUID.
+	/// - Returns: The statement that was created. This is also set on the receiver.
 	public func createStatement(withName name: String = UUID().uuidString) -> Statement {
 		let statement = Statement(name: name, bindingTypes: self.currentBindingTypes)
 		self.statement = statement

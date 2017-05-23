@@ -1,8 +1,13 @@
 import Foundation
 
 
+public protocol AnyEventEmitterObserver {
+	func remove()
+}
+
+
 public class EventEmitter<Payload> {
-	public class Observer: Equatable {
+	public class Observer: Equatable, AnyEventEmitterObserver {
 		fileprivate let queue: DispatchQueue?
 		fileprivate let callback: (Payload) -> Void
 		fileprivate weak var emitter: EventEmitter<Payload>?

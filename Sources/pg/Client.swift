@@ -5,6 +5,7 @@ public final class Client: NotificationObservable {
 	public enum Error: Swift.Error {
 		case invalidConnectionURL
 		case connectionFailure
+		case statementWithNameAlreadyExists
 	}
 	
 	
@@ -128,9 +129,11 @@ public final class Client: NotificationObservable {
 	
 	// MARK: - Query
 	
-	private var queryQueue: [() -> Void] = []
+	private var preparedStatements: [Query.Statement] = []
 	
-	private func enqueuQueryOperation(_ queryOperation: @escaping () -> Void) {
+	private var queryQueue: [(Connection) -> Void] = []
+	
+	private func enqueuQueryOperation(_ queryOperation: @escaping (Connection) -> Void) {
 		queue.async {
 			self.queryQueue.append(queryOperation)
 			self.executeQuery()
@@ -147,7 +150,7 @@ public final class Client: NotificationObservable {
 		let query = queryQueue.removeFirst()
 		
 		
-		query()
+		query(connection)
 	}
 	
 	
@@ -156,30 +159,28 @@ public final class Client: NotificationObservable {
 			query.completed.once(callback)
 		}
 		
-		enqueuQueryOperation {
-			guard let connection = self.connection else { return }
+		enqueuQueryOperation { connection in
+			var observers: [AnyEventEmitterObserver] = []
+			
 			
 			var fields: [Field] = []
-			let rowDescriptionReceived = connection.rowDescriptionReceived.once() { fields = $0 }
+			observers.append(connection.rowDescriptionReceived.once() { fields = $0 })
 			
 			var rows: [[DataSlice?]] = []
-			let rowReceived = connection.rowReceived.observe() { rowFields in
+			observers.append(connection.rowReceived.observe() { rowFields in
 				rows.append(rowFields)
-			}
-			
-			
-			var errorEvent: EventEmitter<Swift.Error>.Observer?
-			var commandComplete: EventEmitter<String>.Observer?
-			
-			errorEvent = connection.error.once({ error in
-				query.completed.emit(Result.failure(error))
-				
-				rowDescriptionReceived.remove()
-				rowReceived.remove()
-				commandComplete?.remove()
 			})
 			
-			commandComplete = connection.commandComplete.once() { commandResponse in
+			
+			observers.append(connection.error.once({ error in
+				query.completed.emit(Result.failure(error))
+				
+				for observer in observers {
+					observer.remove()
+				}
+			}))
+			
+			observers.append(connection.commandComplete.once() { commandResponse in
 				do {
 					let result = try QueryResult(commandResponse: commandResponse, fields: fields, rows: rows, typeParser: self.typeParser)
 					query.completed.emit(Result.success(result))
@@ -187,27 +188,44 @@ public final class Client: NotificationObservable {
 					query.completed.emit(Result.failure(error))
 				}
 				
-				rowDescriptionReceived.remove()
-				rowReceived.remove()
-				errorEvent?.remove()
+				for observer in observers {
+					observer.remove()
+				}
+			})
+			
+			
+			do {
+				try self.executeExtendedQuery(query, on: connection)
+				//		self.executeSimpleQuery(query, on: connection)
+			} catch {
+				query.completed.emit(Result.failure(error))
+				
+				for observer in observers {
+					observer.remove()
+				}
 			}
-			
-			
-			self.executeExtendedQuery(query)
-			//		self.executeSimpleQuery(query)
 		}
 	}
 	
-	private func executeSimpleQuery(_ query: Query) {
-		guard let connection = self.connection else { return }
-		
+	private func executeSimpleQuery(_ query: Query, on connection: Connection) {
 		connection.simpleQuery(query.string)
 	}
 	
-	private func executeExtendedQuery(_ query: Query) {
-		guard let connection = self.connection else { return }
-		
-		if query.statement == nil {
+	private func executeExtendedQuery(_ query: Query, on connection: Connection) throws {
+		if let statement = query.statement {
+			if !self.preparedStatements.contains(statement) {
+				guard !self.preparedStatements.contains(where: { $0.name == statement.name }) else {
+					throw Error.statementWithNameAlreadyExists
+				}
+				self.preparedStatements.append(statement)
+				
+				connection.parse(
+					name: statement.name,
+					query: query.string,
+					types: statement.bindingTypes.map({ $0?.pgTypes.first ?? 0 })
+				)
+			}
+		} else {
 			// if the statement has already been prepared we can skip this step
 			let types = query.currentBindingTypes.map({ $0?.pgTypes.first ?? 0 })
 			connection.parse(query: query.string, types: types)
@@ -224,10 +242,26 @@ public final class Client: NotificationObservable {
 	
 	
 	public func prepare(_ query: Query, callback: ((Result<Query.Statement>) -> Void)?) {
-		enqueuQueryOperation {
-			guard let connection = self.connection else { return }
+		enqueuQueryOperation { connection in
+			let statement: Query.Statement
+			if let existing = query.statement {
+				statement = existing
+			} else {
+				statement = query.createStatement()
+			}
 			
-			let statement = query.createStatement()
+			if self.preparedStatements.contains(statement) {
+				// already prepared on this connection
+				callback?(Result.success(statement))
+				return
+			}
+			
+			guard !self.preparedStatements.contains(where: { $0.name == statement.name }) else {
+				callback?(Result.failure(Error.statementWithNameAlreadyExists))
+				return
+			}
+			self.preparedStatements.append(statement)
+			
 			
 			var parseComplete: EventEmitter<Void>.Observer?
 			var errorResponse: EventEmitter<ServerError>.Observer? = nil
@@ -244,7 +278,12 @@ public final class Client: NotificationObservable {
 				parseComplete?.remove()
 			})
 			
-			connection.parse(name: statement.name, query: query.string)
+			
+			connection.parse(
+				name: statement.name,
+				query: query.string,
+				types: statement.bindingTypes.map({ $0?.pgTypes.first ?? 0 })
+			)
 			
 			connection.sync()
 		}
