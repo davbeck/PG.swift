@@ -6,7 +6,7 @@ public protocol IntegerPostgresRepresentable: PostgresRepresentable, Integer, Cu
 }
 
 extension IntegerPostgresRepresentable {
-	public init?(pgText text: String) {
+	public init?(pgText text: String, type: OID) {
 		self.init(text, radix: 10)
 	}
 }

@@ -10,7 +10,7 @@ extension String: PostgresRepresentable {
 		return self
 	}
 	
-	public init?(pgText text: String) {
+	public init?(pgText text: String, type: OID) {
 		self.init(text)
 	}
 }

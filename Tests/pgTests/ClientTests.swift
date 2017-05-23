@@ -97,6 +97,7 @@ class ClientTests: XCTestCase {
 					XCTAssertEqual(result.rows[0]["e_oid"] as? OID, 65635)
 					
 					XCTAssertEqual(result.rows[0]["e_timestamp"] as? Date, Date(timeIntervalSince1970: 1495465975.3329999))
+					XCTAssertEqual(result.rows[0]["e_date"] as? Date, Date(timeIntervalSince1970: 1495411200.0))
 					
 					let array = Array(result.rows.map({ Dictionary($0) }))
 					print("array: \(array)")

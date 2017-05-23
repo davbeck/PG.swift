@@ -1,12 +1,27 @@
 import Foundation
 
 
+
+/// Type erasure for EventEmitter<Payload>.Observer
+///
+/// You can use this to, for instance, keep an array of observers that should all be cleared at some point.
 public protocol AnyEventEmitterObserver {
 	func remove()
 }
 
 
+public protocol NotificationPayload {
+	var notificationUserInfo: [AnyHashable:Any] { get }
+}
+
+
+/// An emitter of a single event.
+///
+/// An event emitter excecutes any observing callbacks when it is emitted.
+///
+/// Payload is the type of data that is sent with events.
 public class EventEmitter<Payload> {
+	/// An event observer
 	public class Observer: Equatable, AnyEventEmitterObserver {
 		fileprivate let queue: DispatchQueue?
 		fileprivate let callback: (Payload) -> Void
@@ -17,6 +32,7 @@ public class EventEmitter<Payload> {
 			self.callback = callback
 		}
 		
+		/// Remove the observer from the event so that it stops receiving events and cleans up it's memory
 		public func remove() {
 			emitter?.remove(self)
 		}
@@ -28,8 +44,18 @@ public class EventEmitter<Payload> {
 	
 	private let queue: DispatchQueue
 	private var observers: [Observer] = []
+	
+	/// The name of a notification that will be posted when the event is emitted
+	///
+	/// When set, events post a notification to the default notification center when they are emitted. If Payload conforms to `NotificationPayload`, it's `notificationUserInfo` is used for the `userInfo` dictionary.
 	public let notificationName: Notification.Name?
 	
+	
+	/// Create a new event.
+	///
+	/// An event can be created anywhere, but is most commonly a let instance variable that represents an objects events.
+	///
+	/// - Parameter name: Optionally the name of the notification that will be posted when the event emits.
 	public init(name: String? = nil) {
 		queue = DispatchQueue(label: "EventEmitter<\(Payload.self)>.\(name ?? "")")
 		if let name = name {
@@ -40,6 +66,11 @@ public class EventEmitter<Payload> {
 	}
 	
 	
+	/// Emit an event and notify observers
+	///
+	/// If `notificationName` is not nil, a notification will also be posted. If Payload is a `NotificationPayload`, it's `notificationUserInfo` will be used for the 'userInfo' dictionary. The object is always the event emitter.
+	///
+	/// - Parameter payload: The payload to send to the observers.
 	public func emit(_ payload: Payload) {
 		queue.async {
 			for observer in self.observers {
@@ -59,6 +90,13 @@ public class EventEmitter<Payload> {
 		}
 	}
 	
+	
+	/// Create a new observer with a callback
+	///
+	/// - Parameters:
+	///   - queue: The queue the callback should be called on. Defaults to the event's queue.
+	///   - callback: The block to be called when the event is emitted.
+	/// - Returns: A new observer that can be used to remove the observer.
 	@discardableResult
 	public func observe(on queue: DispatchQueue? = nil, _ callback: @escaping (Payload) -> Void) -> Observer {
 		let observer = Observer(queue: queue, callback: callback)
@@ -71,6 +109,12 @@ public class EventEmitter<Payload> {
 		return observer
 	}
 	
+	/// Create a new observer that will only be called once
+	///
+	/// - Parameters:
+	///   - queue: The queue the callback should be called on. Defaults to the event's queue.
+	///   - callback: The block to be called when the event is emitted.
+	/// - Returns: A new observer that can be used to remove the observer.
 	@discardableResult
 	public func once(on queue: DispatchQueue? = nil, _ callback: @escaping (Payload) -> Void) -> Observer {
 		var observer: Observer?
@@ -84,6 +128,11 @@ public class EventEmitter<Payload> {
 		return observer!
 	}
 	
+	/// Remove an observer
+	///
+	/// Equivalent to `Observer.remove`.
+	///
+	/// - Parameter observer: The observer to remove.
 	public func remove(_ observer: Observer) {
 		queue.async {
 			self.observers = self.observers.filter({ $0 !== observer })

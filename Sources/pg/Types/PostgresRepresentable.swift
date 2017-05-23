@@ -7,10 +7,10 @@ public protocol PostgresRepresentable {
 	
 	static var supportedModes: [Field.Mode] { get }
 	
-	init?(pgText text: String)
+	init?(pgText text: String, type: OID)
 	var pgText: String? { get }
 	
-	init?(pgData data: DataSlice)
+	init?(pgData data: DataSlice, type: OID)
 	var pgData: DataSlice? { get }
 }
 
@@ -19,7 +19,7 @@ extension PostgresRepresentable {
 		return [.text]
 	}
 	
-	public init?(pgData data: DataSlice) {
+	public init?(pgData data: DataSlice, type: OID) {
 		return nil
 	}
 	
@@ -29,7 +29,7 @@ extension PostgresRepresentable {
 }
 
 extension PostgresRepresentable where Self: LosslessStringConvertible {
-	public init?(pgText text: String) {
+	public init?(pgText text: String, type: OID) {
 		self.init(text)
 	}
 	

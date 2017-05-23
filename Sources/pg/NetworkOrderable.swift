@@ -1,11 +1,13 @@
 import Foundation
 
 
+/// A value that can be converted to network byte order (big endian)
 protocol NetworkOrderable {
 	init()
 	init(bigEndian value: Self)
 	var bigEndian: Self { get }
 }
+
 extension Int8: NetworkOrderable {
 	init(bigEndian value: Int8) {
 		self.init(value)
@@ -24,7 +26,10 @@ extension UInt8: NetworkOrderable {
 		return self
 	}
 }
+
 extension Int16: NetworkOrderable {}
 extension UInt16: NetworkOrderable {}
 extension Int32: NetworkOrderable {}
 extension UInt32: NetworkOrderable {}
+extension Int64: NetworkOrderable {}
+extension UInt64: NetworkOrderable {}

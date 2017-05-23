@@ -6,7 +6,7 @@ extension UUID: PostgresRepresentable {
 		return [.uuid]
 	}
 	
-	public init?(pgText text: String) {
+	public init?(pgText text: String, type: OID) {
 		self.init(uuidString: text)
 	}
 	

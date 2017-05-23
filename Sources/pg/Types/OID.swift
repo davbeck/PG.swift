@@ -87,8 +87,8 @@ extension OID: PostgresRepresentable {
 		return [.oid]
 	}
 	
-	public init?(pgText text: String) {
-		guard let rawValue = UInt32(pgText: text) else { return nil }
+	public init?(pgText text: String, type: OID) {
+		guard let rawValue = UInt32(text) else { return nil }
 		self.init(rawValue)
 	}
 	

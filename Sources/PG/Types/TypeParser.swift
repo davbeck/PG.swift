@@ -2,13 +2,7 @@ import Foundation
 
 
 public struct TypeParser {
-	public typealias TextParser = (String) -> Any?
-	public typealias BinaryParser = (DataSlice) -> Any?
-	
 	public static let `default` = TypeParser()
-	
-	var textParsers: [UInt32:TextParser] = [:]
-	var binaryParsers: [UInt32:BinaryParser] = [:]
 	
 	/// The types that will be used to parse data.
 	/// 
@@ -45,9 +39,9 @@ public struct TypeParser {
 			switch field.mode {
 			case .text:
 				guard let text = String(data) else { return nil }
-				return type.init(pgText: text)
+				return type.init(pgText: text, type: field.dataTypeID)
 			case .binary:
-				return type.init(pgData: data)
+				return type.init(pgData: data, type: field.dataTypeID)
 			}
 		}
 		
@@ -67,9 +61,9 @@ public struct TypeParser {
 		switch field.mode {
 		case .text:
 			guard let text = String(data) else { return nil }
-			return T.init(pgText: text)
+			return T.init(pgText: text, type: field.dataTypeID)
 		case .binary:
-			return T.init(pgData: data)
+			return T.init(pgData: data, type: field.dataTypeID)
 		}
 	}
 }

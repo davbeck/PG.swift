@@ -1,6 +1,9 @@
 import Foundation
 
 
+/// A formatted error returned from the server
+///
+/// While many things can cause errors locally, including connection errors, if there is an error with a query or command that is recoverable, the server will send a formatted error response.
 public struct ServerError: Swift.Error {
 	public enum Field: UInt8 {
 		case localizedSeverity = 83 // S
@@ -29,6 +32,11 @@ public struct ServerError: Swift.Error {
 	}
 	
 	
+	/// Get the value for a given error field
+	///
+	/// Some fields only ever return a single value, others return multiple.
+	///
+	/// - Parameter field: The field to fetch
 	public subscript(field: Field) -> [String] {
 		return info.lazy.filter({ $0.0 == field }).map({ $0.1 })
 	}

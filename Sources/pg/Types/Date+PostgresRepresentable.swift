@@ -9,12 +9,19 @@ private let timestampFormatter: DateFormatter = {
 	return formatter
 }()
 
+private let dateFormatter: DateFormatter = {
+	let formatter = DateFormatter()
+	formatter.locale = Locale(identifier: "en_US_POSIX")
+	formatter.timeZone = TimeZone(abbreviation: "GMT")
+	formatter.dateFormat = "yyyy-MM-dd"
+	return formatter
+}()
+
 
 extension Date: PostgresRepresentable {
 	public static var pgTypes: [OID] {
 		return [
 			.timestamp,
-			.timestampWithTimezone,
 			.date,
 		]
 	}
@@ -23,8 +30,22 @@ extension Date: PostgresRepresentable {
 		return timestampFormatter.string(from: self)
 	}
 	
-	public init?(pgText text: String) {
-		guard let date = timestampFormatter.date(from: text) else { return nil }
-		self.init(timeIntervalSinceReferenceDate: date.timeIntervalSinceReferenceDate)
+	public init?(pgText text: String, type: OID) {
+		let date: Date?
+		
+		switch type {
+		case OID.date:
+			date = dateFormatter.date(from: text)
+		case OID.timestamp:
+			date = timestampFormatter.date(from: text)
+		default:
+			return nil
+		}
+		
+		if let date = date {
+			self.init(timeIntervalSinceReferenceDate: date.timeIntervalSinceReferenceDate)
+		} else {
+			return nil
+		}
 	}
 }
