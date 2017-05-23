@@ -38,6 +38,17 @@ public struct Query {
 		}
 	}
 	
+	/// Indicates if the more complicated extended excecution workflow needs to be used
+	///
+	/// While any query can use the extended excecution workflow, using the simple query interface is faster because only a single message needs to be sent to the server. However, if the query has bindings or a previously prepared statement it must use the extended workflow.
+	public var needsExtendedExcecution: Bool {
+		if self.bindings.count > 0 || self.statement != nil {
+			return true
+		} else {
+			return false
+		}
+	}
+	
 	/// The statement to use between excecutions of a query
 	///
 	/// If this is not nil the statement will be reused between calls. If it is nil, a new statement will be generated each time.

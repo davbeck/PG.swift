@@ -255,8 +255,11 @@ public final class Client {
 			
 			
 			do {
-				try self.executeExtendedQuery(query, on: connection)
-				//		self.executeSimpleQuery(query, on: connection)
+				if query.needsExtendedExcecution {
+					try self.executeExtendedQuery(query, on: connection)
+				} else {
+					self.executeSimpleQuery(query, on: connection)
+				}
 			} catch {
 				query.completed.emit(Result.failure(error))
 				
