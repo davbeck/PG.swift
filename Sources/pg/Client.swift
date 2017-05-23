@@ -137,6 +137,8 @@ public final class Client {
 	
 	/// Connect to the server
 	///
+	/// A `StreamSocket` is created with the given host and port.
+	///
 	/// - Parameter completion: Called once a connection is established. Note that this does not mean that the client has authenticated. Use the `Client.loginSuccess` event to watch for that. This is equivalent to `Client.connected`.
 	public func connect(completion: ((Swift.Error?) -> Void)?) {
 		guard let socket = StreamSocket(host: config.host, port: config.port) else {
@@ -146,6 +148,13 @@ public final class Client {
 		self.connect(with: socket, completion: completion)
 	}
 	
+	/// Create a connection with the custom socket
+	///
+	/// Normally you call `connect(completion:) instead of this method, but if you want to use your own custom socket connection, you can use this method to connect instead.
+	///
+	/// - Parameters:
+	///   - socket: The socket to connect on.
+	///   - completion: Called when the connection has been established and authenticated. Equivalent to the loginSuccess event.
 	public func connect(with socket: Socket, completion: ((Swift.Error?) -> Void)?) {
 		if !socket.isConnected {
 			socket.connected.once {

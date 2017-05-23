@@ -1,12 +1,23 @@
 import Foundation
 
 
+/// A socket that is implimented with NSStream
 public class StreamSocket: NSObject, Socket {
 	fileprivate let queue = DispatchQueue(label: "StreamSocket")
 	
+	/// The input stream for the socket
 	public let input: InputStream
+	/// The output stream for the socket
 	public let output: OutputStream
 	
+	
+	/// Create a new socket to connect to the given host and port
+	///
+	/// This does not establish a connection to the server. You need to still call `connect`.
+	///
+	/// - Parameters:
+	///   - host: The hostname to connect to. Can be either an IP address or a domain name.
+	///   - port: The port to connect on.
 	public init?(host: String, port: Int) {
 		var input: InputStream?
 		var output: OutputStream?
@@ -35,6 +46,7 @@ public class StreamSocket: NSObject, Socket {
 		return self.input.streamStatus.isConnected && self.output.streamStatus.isConnected
 	}
 	
+	/// Start a connection to the server
 	public func connect() {
 		for stream in [input, output] {
 			stream.delegate = self
@@ -53,6 +65,11 @@ public class StreamSocket: NSObject, Socket {
 	
 	private var writeQueue: [WriteItem] = []
 	
+	/// Queue some data to be written to the socket
+	///
+	/// - Parameters:
+	///   - data: The data to be written.
+	///   - completion: Callback called when the data has been written.
 	public func write(data: Data, completion: (() -> Void)? = nil) {
 		queue.async {
 			let item = WriteItem(data: data, completion: completion)
@@ -86,6 +103,13 @@ public class StreamSocket: NSObject, Socket {
 	
 	private var readQueue: [ReadRequest] = []
 	
+	/// Queue a read request
+	///
+	/// If the socket doesn't have data to read, this request is queued up and excecuted once data arrives.
+	///
+	/// - Parameters:
+	///   - length: The number of bytes to read.
+	///   - completion: Called when the data has been read.
 	public func read(length: Int, completion: ((Data) -> Void)?) {
 		queue.async {
 			let request = ReadRequest(length: length, completion: completion)
