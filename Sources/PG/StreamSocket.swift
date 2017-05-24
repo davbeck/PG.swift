@@ -1,4 +1,5 @@
 import Foundation
+import Dispatch
 
 
 /// A socket that is implimented with NSStream
@@ -136,7 +137,17 @@ public class StreamSocket: NSObject, Socket {
 
 
 extension StreamSocket: StreamDelegate {
+	#if os(Linux)
+	public func stream(_ stream: Stream, handleEvent eventCode: Stream.Event) {
+		self._stream(stream, handle: eventCode)
+	}
+	#else
 	public func stream(_ stream: Stream, handle eventCode: Stream.Event) {
+		self._stream(stream, handle: eventCode)
+	}
+	#endif
+	
+	private func _stream(_ stream: Stream, handle eventCode: Stream.Event) {
 		queue.async {
 			switch eventCode {
 			case Stream.Event.openCompleted:

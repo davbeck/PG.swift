@@ -1,5 +1,5 @@
 import Foundation
-
+import Dispatch
 
 
 /// Type erasure for EventEmitter<Payload>.Observer
@@ -59,7 +59,7 @@ public class EventEmitter<Payload> {
 	public init(name: String? = nil) {
 		queue = DispatchQueue(label: "EventEmitter<\(Payload.self)>.\(name ?? "")")
 		if let name = name {
-			notificationName = Notification.Name(name)
+			notificationName = Notification.Name(rawValue: name)
 		} else {
 			notificationName = nil
 		}

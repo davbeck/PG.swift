@@ -46,7 +46,9 @@ public class QueryResult {
 		else { throw Error.invalidCommandResponse }
 		
 		if kind == .select {
-			guard rowCount == rows.count else { throw Error.mismatchedRowCount }
+			guard rowCount == rows.count else {
+				throw Error.mismatchedRowCount
+			}
 		}
 		
 		self.kind = kind

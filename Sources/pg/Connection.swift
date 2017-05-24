@@ -1,4 +1,5 @@
 import Foundation
+import Dispatch
 
 
 /// The underlying connection to a Postgre server

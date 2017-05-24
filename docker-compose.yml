@@ -1,0 +1,15 @@
+version: '2'
+
+services:
+  db:
+    image: postgres
+    build:
+      context: .
+      dockerfile: Dockerfile.postgres
+  test:
+    build: .
+    volumes:
+      - .:/app
+    command: swift test
+    depends_on:
+      - db

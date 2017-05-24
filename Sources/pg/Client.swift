@@ -1,4 +1,5 @@
 import Foundation
+import Dispatch
 
 
 public final class Client {
@@ -244,23 +245,23 @@ public final class Client {
 			
 			
 			var fields: [Field] = []
-			observers.append(connection.rowDescriptionReceived.once() { fields = $0 })
+			observers.append(connection.rowDescriptionReceived.once(on: self.queue) { fields = $0 })
 			
 			var rows: [[DataSlice?]] = []
-			observers.append(connection.rowReceived.observe() { rowFields in
+			observers.append(connection.rowReceived.observe(on: self.queue) { rowFields in
 				rows.append(rowFields)
 			})
 			
 			
-			observers.append(connection.error.once({ error in
+			observers.append(connection.error.once(on: self.queue) { error in
 				query.completed.emit(Result.failure(error))
 				
 				for observer in observers {
 					observer.remove()
 				}
-			}))
+			})
 			
-			observers.append(connection.commandComplete.once() { commandResponse in
+			observers.append(connection.commandComplete.once(on: self.queue) { commandResponse in
 				do {
 					let result = try QueryResult(commandResponse: commandResponse, fields: fields, rows: rows, typeParser: self.typeParser)
 					query.completed.emit(Result.success(result))
@@ -352,17 +353,17 @@ public final class Client {
 			var parseComplete: EventEmitter<Void>.Observer?
 			var errorResponse: EventEmitter<ServerError>.Observer? = nil
 			
-			parseComplete = connection.parseComplete.once() {
+			parseComplete = connection.parseComplete.once(on: self.queue) {
 				callback?(nil)
 				
 				errorResponse?.remove()
 			}
 			
-			errorResponse = connection.errorResponse.once({ error in
+			errorResponse = connection.errorResponse.once(on: self.queue) { error in
 				callback?(error)
 				
 				parseComplete?.remove()
-			})
+			}
 			
 			
 			connection.parse(
