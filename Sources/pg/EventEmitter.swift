@@ -72,7 +72,7 @@ public class EventEmitter<Payload> {
 	///
 	/// - Parameter payload: The payload to send to the observers.
 	public func emit(_ payload: Payload) {
-		queue.async {
+		queue.sync {
 			for observer in self.observers {
 				if let queue = observer.queue {
 					queue.async {

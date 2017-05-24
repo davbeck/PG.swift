@@ -9,7 +9,7 @@ public class QueryResult {
 	/// - mismatchedRowCount: Thrown when the number of rows don't match the row count
 	public enum Error: Swift.Error {
 		case invalidCommandResponse
-		case mismatchedRowCount
+		case mismatchedRowCount(String, Int)
 	}
 	
 	public enum Kind: String {
@@ -47,7 +47,7 @@ public class QueryResult {
 		
 		if kind == .select {
 			guard rowCount == rows.count else {
-				throw Error.mismatchedRowCount
+				throw Error.mismatchedRowCount(commandResponse, rows.count)
 			}
 		}
 		
