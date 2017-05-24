@@ -30,7 +30,7 @@ client.connect() { error in
 
 ## Motivation
 
-[While](https://github.com/ZewoGraveyard/PostgreSQL) [everyone](https://github.com/vapor-community/postgresql) [seems](https://github.com/stepanhruda/PostgreSQL-Swift) [to](https://github.com/PerfectlySoft/Perfect-PostgreSQL) [agree](https://github.com/IBM-Swift/Swift-Kuery-PostgreSQL) that there needs to be a Swift native interface to Postgres, they all use the C library, [libpq](https://www.postgresql.org/docs/9.5/static/libpq.html). This is a reasonable approach but has a few drawbacks. For one, C lacks a universal event driven, non-blocking socket interface, so you are forced to block a thread while you wait for query responses. Swift has both [DispatchSource](https://developer.apple.com/reference/dispatch/dispatchsource)s and [RunLoops](https://developer.apple.com/reference/foundation/runloop) (this project currently uses the latter). This avoids creating extra threads, which incure performance and memory overhead. Additionally, the client has to do extra work to convert the data from the conneciton into C structures, then again into Swift types.
+[While](https://github.com/ZewoGraveyard/PostgreSQL) [everyone](https://github.com/vapor-community/postgresql) [seems](https://github.com/stepanhruda/PostgreSQL-Swift) [to](https://github.com/PerfectlySoft/Perfect-PostgreSQL) [agree](https://github.com/IBM-Swift/Swift-Kuery-PostgreSQL) that there needs to be a Swift native interface to Postgres, they all use the C library, [libpq](https://www.postgresql.org/docs/9.5/static/libpq.html). This is a reasonable approach but has a few drawbacks. For one, C lacks a universal event driven, non-blocking socket interface, so you are forced to block a thread while you wait for query responses. Swift has both [DispatchSource](https://developer.apple.com/reference/dispatch/dispatchsource)s and [RunLoops](https://developer.apple.com/reference/foundation/runloop) (this project currently uses the former). This avoids creating extra threads, which incure performance and memory overhead. Additionally, the client has to do extra work to convert the data from the conneciton into C structures, then again into Swift types.
 
 The goal of this project is to be usable as is to connect to a PostgreSQL database, but low level enough that it won't get in the way (both in terms of performance and unused code) of higher levels of abstraction.
 
@@ -43,7 +43,7 @@ This project is in it's very earliest stage. You can create a client that connec
 - [X] Execute queries.
 - [X] Return query results and convert them to usable types.
 - [ ] Support for SSL.
-- [ ] Support for Linux (much of NSStream is still unimplemented there, so this may be a big deal).
+- [X] Support for Linux (using [BlueSocket](https://github.com/IBM-Swift/BlueSocket) and [`DispatchSources`](https://developer.apple.com/reference/dispatch/dispatchsource)).
 - [ ] Handle connection errors, disconnects and reconnects.
 - [ ] Support for `LISTEN` and `NOTIFY`.
 - [ ] Database pool for concurrent queries to the same server.

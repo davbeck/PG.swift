@@ -143,7 +143,7 @@ public final class Client {
 	/// - Parameter completion: Called once a connection is established. Note that this does not mean that the client has authenticated. Use the `Client.loginSuccess` event to watch for that. This is equivalent to `Client.connected`.
 	public func connect(completion: ((Swift.Error?) -> Void)?) {
 		do {
-			let socket = try BlueSocket(host: config.host, port: Int32(config.port))
+			let socket = try AsyncSocket(host: config.host, port: Int32(config.port))
 			
 			self.connect(with: socket, completion: completion)
 		} catch {

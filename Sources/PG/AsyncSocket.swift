@@ -3,11 +3,14 @@ import Foundation
 import Dispatch
 
 
-/// A socket that is implimented with [BlueSocket](https://github.com/IBM-Swift/BlueSocket)
-public class BlueSocket: ConnectionSocket {
-	fileprivate let queue = DispatchQueue(label: "BlueSocket")
-	fileprivate let readDispatchQueue = DispatchQueue(label: "BlueSocket.read")
-	fileprivate let writeDispatchQueue = DispatchQueue(label: "BlueSocket.write")
+/// A socket that is implimented with [AsyncSocket](https://github.com/IBM-Swift/AsyncSocket)
+public class AsyncSocket: ConnectionSocket {
+	fileprivate let queue = DispatchQueue(label: "AsyncSocket")
+	fileprivate let readDispatchQueue = DispatchQueue(label: "AsyncSocket.read")
+	fileprivate let writeDispatchQueue = DispatchQueue(label: "AsyncSocket.write")
+	
+	// we have to keep a reference to this to keep getting called
+	fileprivate var readerSource: DispatchSourceRead?
 	
 	/// The underlying socket connection
 	public let socket: Socket
@@ -26,13 +29,13 @@ public class BlueSocket: ConnectionSocket {
 	/// - Parameters:
 	///   - host: The host to use when connecting.
 	///   - port: The port to use when connecting.
-	/// - Throws: BlueSocket errors.
+	/// - Throws: AsyncSocket errors.
 	public init(host: String, port: Int32) throws {
 		self.host = host
 		self.port = port
 		self.socket = try Socket.create()
 		
-		try self.socket.setBlocking(mode: true)
+		try self.socket.setBlocking(mode: false)
 	}
 	
 	
@@ -55,13 +58,26 @@ public class BlueSocket: ConnectionSocket {
 		do {
 			try socket.connect(to: host, port: port)
 			self.connected.emit()
+			
+			
+			let readerSource = DispatchSource.makeReadSource(fileDescriptor: self.socket.socketfd, queue: self.queue)
+			readerSource.setEventHandler() {
+				self.readBuffer()
+			}
+			readerSource.setCancelHandler() {
+				self.close()
+			}
+			readerSource.resume()
+			self.readerSource = readerSource
 		} catch {
 			// TODO: handle errors
 		}
 	}
 	
 	public func close() {
-		socket.close()
+		if self.socket.socketfd > -1 {
+			self.socket.close()
+		}
 	}
 	
 	
@@ -98,7 +114,8 @@ public class BlueSocket: ConnectionSocket {
 		
 		writeDispatchQueue.async {
 			for current in writeQueue {
-				try! self.socket.write(from: current.data)
+				let bytesWritten = try! self.socket.write(from: current.data)
+				print("bytesWritten: \(bytesWritten) of \(current.data.count)")
 				current.completion?()
 			}
 		}
@@ -106,6 +123,16 @@ public class BlueSocket: ConnectionSocket {
 	
 	
 	// MARK: - Reading
+	
+	private var inputBuffer = Data()
+	
+	fileprivate func readBuffer() {
+		_ = try! self.socket.read(into: &self.inputBuffer)
+		
+		if self.inputBuffer.count > 0  {
+			self.performRead()
+		}
+	}
 	
 	struct ReadRequest {
 		let length: Int
@@ -130,34 +157,26 @@ public class BlueSocket: ConnectionSocket {
 		}
 	}
 	
-	private var inputBuffer = Data()
-	
 	fileprivate func performRead() {
 		if #available(OSX 10.12, *) {
 			dispatchPrecondition(condition: .onQueue(self.queue))
 		}
 		
-		let readQueue = self.readQueue
-		self.readQueue = []
+		// if we have any extra data left over from our last read, use it
+		var inputBuffer = self.inputBuffer
+		var offset = inputBuffer.startIndex
 		
-		readDispatchQueue.async {
-			// if we have any extra data left over from our last read, use it
-			var inputBuffer = self.inputBuffer
-			var offset = inputBuffer.startIndex
+		while readQueue.count > 0 {
+			let current = readQueue[0]
+			guard inputBuffer.count >= current.length else { break }
+			readQueue.removeFirst()
 			
-			for current in readQueue {
-				while inputBuffer.count < current.length {
-					// continue reading until our buffer has enough data
-					_ = try! self.socket.read(into: &inputBuffer)
-				}
-				
-				let range = offset..<current.length
-				current.completion?(Data(inputBuffer[range]))
-				offset = range.endIndex
-			}
-			
-			// save the left overs for the next read
-			self.inputBuffer = Data(inputBuffer.suffix(from: offset))
+			let range = offset..<current.length
+			current.completion?(Data(inputBuffer[range]))
+			offset = range.endIndex
 		}
+		
+		// save the left overs for the next read
+		self.inputBuffer = Data(inputBuffer.suffix(from: offset))
 	}
 }
