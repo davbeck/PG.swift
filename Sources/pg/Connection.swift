@@ -136,7 +136,7 @@ public final class Connection {
 	
 	
 	/// The underlying socket connection
-	public let socket: Socket
+	public let socket: ConnectionSocket
 	
 	
 	/// Create a new connection
@@ -146,11 +146,15 @@ public final class Connection {
 	/// - Parameters:
 	///   - input: An input stream ready for connection
 	///   - output: An output stream ready for connection
-	init(socket: Socket) {
+	init(socket: ConnectionSocket) {
 		self.socket = socket
 		
 		// start reading messages
 		self.read()
+	}
+	
+	deinit {
+		self.socket.close()
 	}
 	
 	
@@ -311,7 +315,6 @@ public final class Connection {
 			
 			let rows: [DataSlice?] = try (0..<columnCount).map() { _ in
 				let length = try buffer.read() as Int32
-				print("length: \(length)")
 				if length >= 0 {
 					return try buffer.read(length: Int(length))
 				} else {

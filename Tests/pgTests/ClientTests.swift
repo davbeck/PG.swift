@@ -2,6 +2,10 @@ import XCTest
 @testable import PG
 
 class ClientTests: XCTestCase {
+	private let host = ProcessInfo.processInfo.environment["POSTGRES_HOST"] ?? "localhost"
+	private let user = ProcessInfo.processInfo.environment["POSTGRES_USER"] ?? "postgres"
+	private let database = ProcessInfo.processInfo.environment["POSTGRES_DB"] ?? "pg_swift_tests"
+	
     func testInvalidURL() {
 		do {
 			_ = try Client.Config(url: URL(string: "http://someuser:somepassword@somehost:381/somedatabase")!)
@@ -18,7 +22,7 @@ class ClientTests: XCTestCase {
     }
 	
 	func testConnect() {
-		let client = Client(Client.Config(user: "postgres", database: "pg_swift_tests"))
+		let client = Client(Client.Config(host: host, user: user, database: database))
 		
 		let loginExpectation = self.expectation(description: "login client")
 		client.loginSuccess.once() {
@@ -42,7 +46,7 @@ class ClientTests: XCTestCase {
 	}
 	
 	func testSimpleQuery() {
-		let client = Client(Client.Config(user: "postgres", database: "pg_swift_tests"))
+		let client = Client(Client.Config(host: host, user: user, database: database))
 		
 		let expectation = self.expectation(description: "query")
 		
@@ -68,7 +72,7 @@ class ClientTests: XCTestCase {
 	}
 	
 	func testQueryBindings() {
-		let client = Client(Client.Config(user: "postgres", database: "pg_swift_tests"))
+		let client = Client(Client.Config(host: host, user: user, database: database))
 		
 		let expectation = self.expectation(description: "query")
 		
@@ -113,7 +117,7 @@ class ClientTests: XCTestCase {
 	}
 	
 	func testBindingUpdate() {
-		let client = Client(Client.Config(user: "postgres", database: "pg_swift_tests"))
+		let client = Client(Client.Config(host: host, user: user, database: database))
 		
 		let expectation = self.expectation(description: "query")
 		
@@ -163,7 +167,7 @@ class ClientTests: XCTestCase {
 	}
 	
 	func testPreparedStatement() {
-		let client = Client(Client.Config(user: "postgres", database: "pg_swift_tests"))
+		let client = Client(Client.Config(host: host, user: user, database: database))
 		
 		let expectation = self.expectation(description: "query")
 		

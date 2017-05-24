@@ -1,6 +1,7 @@
 import XCTest
-@testable import pgTests
+@testable import PGTests
 
 XCTMain([
-    testCase(pgTests.allTests),
+    testCase(ClientTests.allTests),
+    testCase(TypeParserTests.allTests),
 ])

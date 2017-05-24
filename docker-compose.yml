@@ -1,5 +1,6 @@
 version: '2'
-
+volumes:
+  swift_build:
 services:
   db:
     image: postgres
@@ -10,6 +11,11 @@ services:
     build: .
     volumes:
       - .:/app
+      - swift_build:/app/.build
     command: swift test
     depends_on:
       - db
+    environment:
+      - POSTGRES_HOST=db
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=postgres

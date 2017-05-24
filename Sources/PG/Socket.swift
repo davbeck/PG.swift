@@ -1,9 +1,11 @@
 import Foundation
 
 
-public protocol Socket {
+public protocol ConnectionSocket {
 	/// Connect to the socket
 	func connect()
+	
+	func close()
 	
 	/// If the connection has been established
 	var isConnected: Bool { get }

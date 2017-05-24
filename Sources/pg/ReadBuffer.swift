@@ -9,11 +9,10 @@ struct ReadBuffer {
 	}
 	
 	
-	// hopefully Data(DataSlice) is effcient (doesn't copy), or our performance will suffer
 	private(set) var data: DataSlice
 	
 	init(_ data: Data) {
-		self.data = data[data.startIndex..<data.endIndex]
+		self.data = DataSlice(data)
 	}
 	
 	
