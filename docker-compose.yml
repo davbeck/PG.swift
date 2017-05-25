@@ -10,7 +10,8 @@ services:
   test:
     build: .
     volumes:
-      - .:/app
+      - ./Sources:/app/Sources
+      - ./Tests:/app/Tests
       - swift_build:/app/.build
     command: swift test
     depends_on:
