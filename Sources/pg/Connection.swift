@@ -38,23 +38,6 @@ public final class Connection {
 		case errorResponse = 69 // E
 	}
 	
-	/// Outgoing/frontend message types
-	///
-	/// Postgre messages (almost) always start with a single byte indicating what type of message they are. The documentation refer to these by their ASCII character. The rawValue is the ASCII code point.
-	///
-	/// See https://www.postgresql.org/docs/devel/static/protocol-message-formats.html.
-	public enum FrontendMessageType: UInt8 {
-		case startup // the only message that doesn't announce it's type
-		
-		case simpleQuery = 81 // Q
-		case parseQuery = 80 // P
-		case bind = 66 // B
-		case describe = 68 // D
-		case execute = 69 // E
-		
-		case sync = 83 // S
-	}
-	
 	/// Types of authentication requests
 	///
 	/// - authenticationOK: Sent when the conneciton is authenticated.
@@ -179,29 +162,6 @@ public final class Connection {
 	
 	/// The state of the server to accept queries
 	public fileprivate(set) var transactionStatus: TransactionStatus = .notReady
-	
-	
-	// MARK: - Writing
-	
-	/// Send a message to the server
-	///
-	/// - Parameters:
-	///   - type: The type of message to write
-	///   - buffer: The body of the message
-	///   - completion: Called when the message has been written
-	func write(_ type: FrontendMessageType, _ buffer: WriteBuffer, completion: (() -> Void)? = nil) {
-		queue.async {
-			if type != .startup {
-				self.socket.write(data: Data(bytesFrom: type.rawValue), completion: nil)
-			}
-			
-			self.socket.write(data: Data(bytesFrom: UInt32(buffer.data.count + 4)), completion: nil)
-			
-			self.socket.write(data: buffer.data, completion: { 
-				completion?()
-			})
-		}
-	}
 	
 	
 	// MARK: - Reading
@@ -357,7 +317,7 @@ extension Connection {
 	///   - user: The username for the connection
 	///   - database: The database, or nil to connect to the default database
 	func sendStartup(user: String, database: String?) {
-		var message = WriteBuffer()
+		var message = FrontendMessage(.startup, capacity: 2 + 2 + 6 + 10 + 24 + 1) // minimum message size
 		
 		// protocol version
 		message.write(3 as Int16)
@@ -367,7 +327,6 @@ extension Connection {
 		message.write(user)
 		
 		if let database = database {
-			print("database: \(database)")
 			message.write("database")
 			message.write(database)
 		}
@@ -377,7 +336,7 @@ extension Connection {
 		
 		message.write("")
 		
-		self.write(.startup, message)
+		self.send(message)
 	}
 	
 	
@@ -389,10 +348,10 @@ extension Connection {
 	func simpleQuery(_ query: String) {
 		self.transactionStatus = .notReady
 		
-		var message = WriteBuffer()
+		var message = FrontendMessage(.simpleQuery, capacity: 30) // a typical query size
 		message.write(query)
 		
-		self.write(.simpleQuery, message)
+		self.send(message)
 	}
 	
 	/// Prepare a statement with the server
@@ -404,7 +363,7 @@ extension Connection {
 	func parse(name: String = "", query: String, types: [OID] = []) {
 		self.transactionStatus = .notReady
 		
-		var message = WriteBuffer()
+		var message = FrontendMessage(.parseQuery, capacity: 1 + 1 + 2 + (2 * types.count)) // minimum size with an empty name
 		
 		message.write(name)
 		message.write(query)
@@ -413,7 +372,7 @@ extension Connection {
 			message.write(type.rawValue)
 		}
 		
-		self.write(.parseQuery, message)
+		self.send(message)
 	}
 	
 	/// Bind a statement with specific values
@@ -425,7 +384,7 @@ extension Connection {
 	func bind(name: String = "", statementName: String = "", parameters: [PostgresRepresentable?] = []) {
 		self.transactionStatus = .notReady
 		
-		var message = WriteBuffer()
+		var message = FrontendMessage(.bind, capacity: 1 + 1 + 2 + (2 * parameters.count) + 2 + (4 * parameters.count) + 2) // minimum size with empty names and null values
 		
 		message.write(name)
 		message.write(statementName)
@@ -442,13 +401,14 @@ extension Connection {
 				message.write(Int32(data.count))
 				message.write(data)
 			} else {
-				message.write(Int16(-1)) // null
+				message.write(Int32(-1)) // null
 			}
 		}
 		
+		// TODO: write out the prefered binary vs text result formats once we can parse binary results
 		message.write(UInt16(0))
 		
-		self.write(.bind, message)
+		self.send(message)
 	}
 	
 	/// Describe a prepared statement
@@ -457,12 +417,12 @@ extension Connection {
 	func describeStatement(name: String = "") {
 		self.transactionStatus = .notReady
 		
-		var message = WriteBuffer()
+		var message = FrontendMessage(.describe, capacity: 1 + 1) // minimum size assuming an empty name
 		
 		message.write(Int8(83))
 		message.write(name)
 		
-		self.write(.describe, message)
+		self.send(message)
 	}
 	
 	/// Describe a prepared portal (bound statement)
@@ -471,12 +431,12 @@ extension Connection {
 	func describePortal(name: String = "") {
 		self.transactionStatus = .notReady
 		
-		var message = WriteBuffer()
+		var message = FrontendMessage(.describe, capacity: 1 + 1) // minimum size assuming an empty name
 		
 		message.write(Int8(80))
 		message.write(name)
 		
-		self.write(.describe, message)
+		self.send(message)
 	}
 	
 	/// Excecute a portal (bound statement)
@@ -487,12 +447,12 @@ extension Connection {
 	func execute(portal: String = "", rows: UInt32 = 0) {
 		self.transactionStatus = .notReady
 		
-		var message = WriteBuffer()
+		var message = FrontendMessage(.execute, capacity: 1 + 4) // minimum size assuming an empty portal name
 		
 		message.write(portal)
 		message.write(rows)
 		
-		self.write(.execute, message)
+		self.send(message)
 	}
 	
 	/// Send a sync command to the server
@@ -501,6 +461,6 @@ extension Connection {
 	///
 	/// See https://www.postgresql.org/docs/9.3/static/protocol-flow.html#PROTOCOL-FLOW-EXT-QUERY.
 	func sync() {
-		self.write(.sync, WriteBuffer())
+		self.send(FrontendMessage(.sync))
 	}
 }
