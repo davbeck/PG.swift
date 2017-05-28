@@ -119,7 +119,7 @@ extension Connection {
 	///
 	/// - Parameter message: The message
 	public func send(_ message: FrontendMessage) {
-		print("sending \(message)")
+//		print("sending \(message)")
 		self.socket.write(data: message.data, completion: nil)
 	}
 }

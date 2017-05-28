@@ -116,7 +116,7 @@ public class AsyncSocket: ConnectionSocket {
 			for current in writeQueue {
 				let bytesWritten = try! self.socket.write(from: current.data)
 				guard bytesWritten == current.data.count else {
-					print("bytesWritten: \(bytesWritten) of \(current.data.count)")
+//					print("bytesWritten: \(bytesWritten) of \(current.data.count)")
 					fatalError()
 				}
 				current.completion?()

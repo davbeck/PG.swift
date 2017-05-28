@@ -57,9 +57,6 @@ class ClientTests: XCTestCase {
 					XCTAssertEqual(result.fields.count, 19)
 					XCTAssertEqual(result.rows.count, 2)
 					XCTAssertEqual(result.rowCount, 2)
-					
-					let array = Array(result.rows.map({ Dictionary($0) }))
-					print("array: \(array)")
 				case .failure(let error):
 					XCTFail("error: \(error)")
 				}
@@ -102,9 +99,6 @@ class ClientTests: XCTestCase {
 					
 					XCTAssertEqual(result.rows[0]["e_timestamp"] as? Date, Date(timeIntervalSince1970: 1495465975.3329999))
 					XCTAssertEqual(result.rows[0]["e_date"] as? Date, Date(timeIntervalSince1970: 1495411200.0))
-					
-					let array = Array(result.rows.map({ Dictionary($0) }))
-					print("array: \(array)")
 				case .failure(let error):
 					XCTFail("error: \(error)")
 				}
@@ -135,9 +129,6 @@ class ClientTests: XCTestCase {
 					
 					XCTAssertEqual(result.rows[0]["e_uuid"] as? UUID, idA)
 					
-					let array = Array(result.rows.map({ Dictionary($0) }))
-					print("array: \(array)")
-					
 					
 					try! query.update(bindings: [idB])
 					client.exec(query) { result in
@@ -148,9 +139,6 @@ class ClientTests: XCTestCase {
 							XCTAssertEqual(result.rowCount, 1)
 							
 							XCTAssertEqual(result.rows[0]["e_uuid"] as? UUID, idB)
-							
-							let array = Array(result.rows.map({ Dictionary($0) }))
-							print("array: \(array)")
 						case .failure(let error):
 							XCTFail("error: \(error)")
 						}
@@ -199,9 +187,6 @@ class ClientTests: XCTestCase {
 								XCTAssertEqual(result.rowCount, 1)
 								
 								XCTAssertEqual(result.rows[0]["e_uuid"] as? UUID, idB)
-								
-								let array = Array(result.rows.map({ Dictionary($0) }))
-								print("array: \(array)")
 							case .failure(let error):
 								XCTFail("error: \(error)")
 							}

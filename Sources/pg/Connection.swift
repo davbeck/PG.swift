@@ -193,7 +193,7 @@ public final class Connection {
 		
 		self.backendMessageReceived.emit(message)
 		
-		print("processing: \(message)")
+//		print("processing: \(message)")
 		
 		switch message.type {
 		case BackendMessageType.authentication:
@@ -246,7 +246,6 @@ public final class Connection {
 			rowDescriptionReceived.emit(fields)
 		case BackendMessageType.commandComplete:
 			let commandTag = try message.read() as String
-			print("command complete: \(commandTag)")
 			
 			commandComplete.emit(commandTag)
 		case BackendMessageType.dataRow:
