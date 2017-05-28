@@ -13,29 +13,7 @@ public final class Connection {
 	/// - malformedMessage: The message type was understood, but the message was in a format that the connection did not understand. This should be rare.
 	public enum Error: Swift.Error {
 		case mismatchedDataLengths
-		case unrecognizedMessage(UInt8)
 		case malformedMessage
-	}
-	
-	
-	/// Incoming/backend message types
-	///
-	/// Postgre messages (almost) always start with a single byte indicating what type of message they are. The documentation refer to these by their ASCII character. The rawValue is the ASCII code point.
-	///
-	/// See https://www.postgresql.org/docs/devel/static/protocol-message-formats.html.
-	public enum BackendMessageType: UInt8 {
-		case authentication = 82 // R
-		case statusReport = 83 // S
-		case backendKeyData = 75 // K
-		case readyForQuery = 90 // Z
-		case rowDescription = 84 // T
-		case commandComplete = 67 // C
-		case dataRow = 68 // D
-		
-		case parseComplete = 49 // 1
-		case bindComplete = 50 // 2
-		
-		case errorResponse = 69 // E
 	}
 	
 	/// Types of authentication requests
@@ -72,6 +50,17 @@ public final class Connection {
 	public let connected = EventEmitter<Void>(name: "PG.Connection.connected")
 	/// Emitted when the connection has authenticated.
 	public let loginSuccess = EventEmitter<Void>(name: "PG.Connection.loginSuccess")
+	
+	
+	/// A message (of any type) was received from the server.
+	///
+	/// This is always called just before the message gets processed.
+	public let backendMessageReceived = EventEmitter<BackendMessage>(name: "PG.Connection.backendMessageReceived")
+	
+	/// A message was received from the server that the connection does not recognize.
+	///
+	/// This may be because the connection is missing an implimentation for a message type or because the backend has a custom extension. In either case users can extend the capabilities of the connection to handle cursom messages the connection would not otherwise handle.
+	public let unrecognizedBackendMessageReceived = EventEmitter<BackendMessage>(name: "PG.Connection.unrecognizedBackendMessageReceived")
 	
 	
 	/// Emitted when a ready for query notification is receieved.
@@ -173,51 +162,42 @@ public final class Connection {
 		// ince we finish reading in a message, we can ask for the next one and the process starts over
 		
 		socket.read(length: 1 + 4) { (messageHeader) in
-			do {
-				var headerBuffer = ReadBuffer(messageHeader)
+			let byte: UInt8 = messageHeader[0..<1].withUnsafeBytes({ $0.pointee })
+			let length: UInt32 = UInt32(bigEndian: messageHeader[1..<5].withUnsafeBytes({ $0.pointee })) - 4
+			
+			self.socket.read(length: Int(length)) { data in
+				let messageType = BackendMessageType(rawValue: byte)
+				let message = BackendMessage(type: messageType, data: data)
 				
-				let byte: UInt8 = try headerBuffer.read()
-				let length: UInt32 = try headerBuffer.read() - 4
-				
-				self.socket.read(length: Int(length)) { data in
-					self.queue.async {
-						do {
-							guard let messageType = BackendMessageType(rawValue: byte) else {
-								throw Error.unrecognizedMessage(byte)
-							}
-							
-							try self.process(messageType, from: data)
-						} catch {
-							// this probably isn't a fatal error
-							print("error processing message: \(error)")
-						}
+				self.queue.async {
+					do {
+						try self.process(message)
+					} catch {
+						print("error processing message: \(error)")
+						self.error.emit(error)
 					}
-					
-					// we don't need to wait for the message to be processed before reading the next message
-					// since we have already read all the data for the current message
-					self.read()
 				}
-			} catch {
-				self.error.emit(error)
-				print("error reading message header: \(error)")
 				
-				// TODO: this should probably be a disconnect
+				// we don't need to wait for the message to be processed before reading the next message
+				// since we have already read all the data for the current message
 				self.read()
 			}
 		}
 	}
 	
-	private func process(_ message: BackendMessageType, from data: Data) throws {
+	private func process(_ message: BackendMessage) throws {
 		if #available(OSX 10.12, *) {
 			dispatchPrecondition(condition: .onQueue(self.queue))
 		}
+		var message = message
 		
-		var buffer = ReadBuffer(data)
+		self.backendMessageReceived.emit(message)
+		
 		print("processing: \(message)")
 		
-		switch message {
-		case .authentication:
-			let rawResponse: UInt32 = try buffer.read()
+		switch message.type {
+		case BackendMessageType.authentication:
+			let rawResponse: UInt32 = try message.read()
 			
 			if let response = AuthenticationResponse(rawValue: rawResponse) {
 				switch response {
@@ -228,77 +208,76 @@ public final class Connection {
 			} else {
 				
 			}
-		case .statusReport:
-			let key: String = try buffer.read()
-			let value: String = try buffer.read()
+		case BackendMessageType.statusReport:
+			let key: String = try message.read()
+			let value: String = try message.read()
 			
 			parameters[key] = value
 			
 			print("status \(key): \(value)")
-		case .backendKeyData:
-			guard buffer.data.count == 8 else { throw Error.malformedMessage }
-			self.processID = try buffer.read()
-			self.secretKey = try buffer.read()
+		case BackendMessageType.backendKeyData:
+			guard message.data.count == 8 else { throw Error.malformedMessage }
+			self.processID = try message.read()
+			self.secretKey = try message.read()
 			
 			print("processID: \(processID!) secretKey: \(secretKey!)")
-		case .readyForQuery:
-			guard buffer.data.count == 1 else { throw Error.malformedMessage }
+		case BackendMessageType.readyForQuery:
+			guard message.data.count == 1 else { throw Error.malformedMessage }
 			
-			let rawStatus: UInt8 = try buffer.read()
+			let rawStatus: UInt8 = try message.read()
 			self.transactionStatus = TransactionStatus(rawValue: rawStatus) ?? .idle
 			
-			self.readyForQuery.emit(self.transactionStatus)
-		case .rowDescription:
-			let fieldsCount: UInt16 = try buffer.read()
+			readyForQuery.emit(self.transactionStatus)
+		case BackendMessageType.rowDescription:
+			let fieldsCount: UInt16 = try message.read()
 			
 			let fields: [Field] = try (0..<fieldsCount).map() { _ in
 				let field = Field()
-				field.name = try buffer.read()
-				field.tableID = try buffer.read()
-				field.columnID = try buffer.read()
-				field.dataTypeID = try OID(buffer.read())
-				field.dataTypeSize = try buffer.read()
-				field.dataTypeModifier = try buffer.read()
-				field.mode = try Field.Mode(rawValue: buffer.read()) ?? .text
+				field.name = try message.read()
+				field.tableID = try message.read()
+				field.columnID = try message.read()
+				field.dataTypeID = try OID(message.read())
+				field.dataTypeSize = try message.read()
+				field.dataTypeModifier = try message.read()
+				field.mode = try Field.Mode(rawValue: message.read()) ?? .text
 				return field
 			}
 			
-			self.rowDescriptionReceived.emit(fields)
-			print("fields: \(fields)")
-		case .commandComplete:
-			let commandTag = try buffer.read() as String
+			rowDescriptionReceived.emit(fields)
+		case BackendMessageType.commandComplete:
+			let commandTag = try message.read() as String
 			print("command complete: \(commandTag)")
 			
-			self.commandComplete.emit(commandTag)
-		case .dataRow:
-			let columnCount = try buffer.read() as UInt16
+			commandComplete.emit(commandTag)
+		case BackendMessageType.dataRow:
+			let columnCount = try message.read() as UInt16
 			
 			let rows: [DataSlice?] = try (0..<columnCount).map() { _ in
-				let length = try buffer.read() as Int32
+				let length = try message.read() as Int32
 				if length >= 0 {
-					return try buffer.read(length: Int(length))
+					return try message.read(length: Int(length))
 				} else {
 					return nil
 				}
 			}
 			
-			self.rowReceived.emit(rows)
-		case .parseComplete:
-			guard buffer.data.count == 0 else { throw Error.malformedMessage }
+			rowReceived.emit(rows)
+		case BackendMessageType.parseComplete:
+			guard message.data.count == 0 else { throw Error.malformedMessage }
 			
 			parseComplete.emit()
-		case .bindComplete:
-			guard buffer.data.count == 0 else { throw Error.malformedMessage }
+		case BackendMessageType.bindComplete:
+			guard message.data.count == 0 else { throw Error.malformedMessage }
 			
 			bindComplete.emit()
-		case .errorResponse:
+		case BackendMessageType.errorResponse:
 			var error = ServerError()
-			while buffer.data.count > 0 {
-				let fieldType = try buffer.read() as UInt8
+			while message.data.count > 0 {
+				let fieldType = try message.read() as UInt8
 				guard fieldType != 0 else { break }
 				
 				guard let field = ServerError.Field(rawValue: fieldType) else { continue }
-				let value = try buffer.read() as String
+				let value = try message.read() as String
 				
 				error.info.append((field, value))
 			}
@@ -306,6 +285,9 @@ public final class Connection {
 			
 			self.errorResponse.emit(error)
 			self.error.emit(error)
+		default:
+			self.unrecognizedBackendMessageReceived.emit(message)
+			print("unrecognized backend message recieved: \(message)")
 		}
 	}
 }
