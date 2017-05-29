@@ -1,5 +1,6 @@
 import Foundation
 import Dispatch
+import CryptoSwift
 
 
 /// The underlying connection to a Postgre server
@@ -22,8 +23,8 @@ public final class Connection {
 	public enum AuthenticationResponse: UInt32 {
 		case authenticationOK = 0
 		// case kerberosV5 = 2
-		// case cleartextPassword = 3
-		// case MD5Password = 5
+		case cleartextPassword = 3
+		case MD5Password = 5
 		// case SCMCredential = 6
 	}
 	
@@ -48,6 +49,12 @@ public final class Connection {
 	
 	/// Emitted when the connection has authenticated.
 	public let loginSuccess = EventEmitter<Void>(name: "PG.Connection.loginSuccess")
+	
+	/// Emitted when a cleartext password is requested to authenticate.
+	public let authenticationCleartextPassword = EventEmitter<Void>(name: "PG.Connection.authenticationCleartextPassword")
+	
+	/// Emitted when an MD5 hashed password response is requested to authenticate.
+	public let authenticationMD5Password = EventEmitter<DataSlice>(name: "PG.Connection.authenticationMD5Password")
 	
 	
 	/// A message (of any type) was received from the server.
@@ -206,6 +213,11 @@ public final class Connection {
 				case .authenticationOK:
 					self.isAuthenticated = true
 					self.loginSuccess.emit()
+				case .cleartextPassword:
+					authenticationCleartextPassword.emit()
+				case .MD5Password:
+					let salt = try message.read(length: 4)
+					authenticationMD5Password.emit(salt)
 				}
 			} else {
 				
@@ -320,6 +332,30 @@ extension Connection {
 		message.write("")
 		
 		self.send(message)
+	}
+	
+	
+	/// Send a password authentication response
+	///
+	/// - Parameter password: An authentication response (can be a plain text password or an encrypted authentication response).
+	func sendPassword(_ password: String) {
+		var message = FrontendMessage(.password) // a typical query size
+		message.write(password)
+		
+		self.send(message)
+	}
+	
+	
+	/// Hashes and sends an MD5 authentication response.
+	///
+	/// - Parameters:
+	///   - username: The username used to connect to the server. This must match the one sent in the startup message.
+	///   - password: The password to authenticate with.
+	///   - salt: The salt returned from the server.
+	func sendMD5Authentication(username: String, password: String, salt: DataSlice) {
+		let passwordHash = "md5" + ((password + username).data().md5().toHexString().data() + salt).md5().toHexString()
+		
+		self.sendPassword(passwordHash)
 	}
 	
 	

@@ -29,6 +29,8 @@ extension Connection {
 		
 		public static let startup: FrontendMessageType = 0 // the only message that doesn't announce it's type
 		
+		public static let password: FrontendMessageType = 112 // p
+		
 		public static let simpleQuery: FrontendMessageType = 81 // Q
 		public static let parseQuery: FrontendMessageType = 80 // P
 		public static let bind: FrontendMessageType = 66 // B

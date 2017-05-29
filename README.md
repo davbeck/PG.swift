@@ -2,7 +2,7 @@
 
 ![macOS](https://img.shields.io/badge/os-macOS-green.svg?style=flat)
 ![Linux](https://img.shields.io/badge/os-linux-green.svg?style=flat)
-![MIT](https://img.shields.io/badge/license-Apache2-blue.svg?style=flat)
+![MIT](https://img.shields.io/badge/license-MIT-blue.svg?style=flat)
 
 A [PostgreSQL](https://www.postgresql.org) client library written in pure Swift (without any dependency the C [libpq](https://www.postgresql.org/docs/9.5/static/libpq.html)).
 
@@ -43,7 +43,7 @@ The goal of this project is to be usable as is to connect to a PostgreSQL databa
 This project is in it's very earliest stage. You can create a client that connects to a server and excecute queries. Here are some of the bigger features that need to be implemented before the framework is usable:
 
 - [X] Connect client to server.
-- [ ] Handle authentication other than passwordless.
+- [X] Handle authentication other than passwordless.
 - [X] Execute queries.
 - [X] Return query results and convert them to usable types.
 - [ ] Support for SSL.

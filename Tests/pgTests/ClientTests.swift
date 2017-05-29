@@ -4,6 +4,7 @@ import XCTest
 class ClientTests: XCTestCase {
 	private let host = ProcessInfo.processInfo.environment["POSTGRES_HOST"] ?? "localhost"
 	private let user = ProcessInfo.processInfo.environment["POSTGRES_USER"] ?? "postgres"
+	private let password = ProcessInfo.processInfo.environment["POSTGRES_PASS"] ?? "postgres"
 	private let database = ProcessInfo.processInfo.environment["POSTGRES_DB"] ?? "pg_swift_tests"
 	
     func testInvalidURL() {
@@ -22,7 +23,7 @@ class ClientTests: XCTestCase {
     }
 	
 	func testConnect() {
-		let client = Client(Client.Config(host: host, user: user, database: database))
+		let client = Client(Client.Config(host: host, user: user, password: password, database: database))
 		
 		let loginExpectation = self.expectation(description: "login client")
 		client.loginSuccess.once() {
@@ -46,7 +47,7 @@ class ClientTests: XCTestCase {
 	}
 	
 	func testSimpleQuery() {
-		let client = Client(Client.Config(host: host, user: user, database: database))
+		let client = Client(Client.Config(host: host, user: user, password: password, database: database))
 		
 		let expectation = self.expectation(description: "query")
 		
@@ -69,7 +70,7 @@ class ClientTests: XCTestCase {
 	}
 	
 	func testQueryBindings() {
-		let client = Client(Client.Config(host: host, user: user, database: database))
+		let client = Client(Client.Config(host: host, user: user, password: password, database: database))
 		
 		let expectation = self.expectation(description: "query")
 		
@@ -112,7 +113,7 @@ class ClientTests: XCTestCase {
 	}
 	
 	func testBindingUpdate() {
-		let client = Client(Client.Config(host: host, user: user, database: database))
+		let client = Client(Client.Config(host: host, user: user, password: password, database: database))
 		
 		let expectation = self.expectation(description: "query")
 		
@@ -156,7 +157,7 @@ class ClientTests: XCTestCase {
 	}
 	
 	func testPreparedStatement() {
-		let client = Client(Client.Config(host: host, user: user, database: database))
+		let client = Client(Client.Config(host: host, user: user, password: password, database: database))
 		
 		let expectation = self.expectation(description: "query")
 		
@@ -205,7 +206,7 @@ class ClientTests: XCTestCase {
 	}
 	
 	func testBinaryResults() {
-		let client = Client(Client.Config(host: host, user: user, database: database))
+		let client = Client(Client.Config(host: host, user: user, password: password, database: database))
 		
 		let expectation = self.expectation(description: "query")
 		

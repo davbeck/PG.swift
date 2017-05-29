@@ -192,6 +192,16 @@ public final class Client {
 		let connection = Connection(socket: socket)
 		self.connection = connection
 		
+		
+		connection.authenticationCleartextPassword.observe(on: self.queue) {
+			connection.sendPassword(self.config.password ?? "")
+		}
+		
+		connection.authenticationMD5Password.observe { salt in
+			connection.sendMD5Authentication(username: self.config.user, password: self.config.password ?? "", salt: salt)
+		}
+		
+		
 		connection.loginSuccess.once(on: self.queue) {
 			completion?(nil)
 			completion = nil
