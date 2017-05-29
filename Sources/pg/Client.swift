@@ -117,6 +117,9 @@ public final class Client {
 	/// Emitted when a connection has been established with the server
 	public let connected = EventEmitter<Void>(name: "PG.Client.connected")
 	
+	/// Emitted when a connection has been established with the server
+	public let disconnected = EventEmitter<Void>(name: "PG.Client.disconnected")
+	
 	/// Emitted when a connection has been established and authenticated
 	public let loginSuccess = EventEmitter<Void>(name: "PG.Client.loginSuccess")
 	
@@ -143,7 +146,7 @@ public final class Client {
 	/// - Parameter completion: Called once a connection is established. Note that this does not mean that the client has authenticated. Use the `Client.loginSuccess` event to watch for that. This is equivalent to `Client.connected`.
 	public func connect(completion: ((Swift.Error?) -> Void)?) {
 		do {
-			let socket = try AsyncSocket(host: config.host, port: Int32(config.port))
+			let socket = try AsyncSocket()
 			
 			self.connect(with: socket, completion: completion)
 		} catch {
@@ -159,14 +162,18 @@ public final class Client {
 	///   - socket: The socket to connect on.
 	///   - completion: Called when the connection has been established and authenticated. Equivalent to the loginSuccess event.
 	public func connect(with socket: ConnectionSocket, completion: ((Swift.Error?) -> Void)?) {
-		if !socket.isConnected {
-			socket.connected.once {
+		do {
+			if !socket.isConnected {
+				socket.connected.once {
+					self.startup(with: socket, completion: completion)
+				}
+				
+				try socket.connect(host: config.host, port: Int32(config.port))
+			} else {
 				self.startup(with: socket, completion: completion)
 			}
-			
-			socket.connect()
-		} else {
-			self.startup(with: socket, completion: completion)
+		} catch {
+			completion?(error)
 		}
 	}
 	
@@ -175,6 +182,12 @@ public final class Client {
 		
 		precondition(socket.isConnected)
 		self.connected.emit()
+		
+		socket.closed.once(on: self.queue) {
+			self.connection = nil
+			
+			self.disconnected.emit()
+		}
 		
 		let connection = Connection(socket: socket)
 		self.connection = connection

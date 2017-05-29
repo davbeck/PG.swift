@@ -5,6 +5,11 @@ import Dispatch
 
 /// A socket that is implimented with [AsyncSocket](https://github.com/IBM-Swift/AsyncSocket)
 public class AsyncSocket: ConnectionSocket {
+	public enum Error: Swift.Error {
+		case closed
+	}
+	
+	
 	fileprivate let queue = DispatchQueue(label: "AsyncSocket")
 	fileprivate let readDispatchQueue = DispatchQueue(label: "AsyncSocket.read")
 	fileprivate let writeDispatchQueue = DispatchQueue(label: "AsyncSocket.write")
@@ -15,25 +20,18 @@ public class AsyncSocket: ConnectionSocket {
 	/// The underlying socket connection
 	public let socket: Socket
 	
-	/// The host to use when connecting
-	public let host: String
-	
-	/// The port to use when connecting
-	public let port: Int32
-	
 	
 	/// Create a new socket to connect to the given host and port
 	///
 	/// This does not establish a connection to the server. You need to still call `connect`.
 	///
-	/// - Parameters:
-	///   - host: The host to use when connecting.
-	///   - port: The port to use when connecting.
-	/// - Throws: AsyncSocket errors.
-	public init(host: String, port: Int32) throws {
-		self.host = host
-		self.port = port
-		self.socket = try Socket.create()
+	/// - Throws: Socket errors.
+	public convenience init() throws {
+		try self.init(socket: Socket.create())
+	}
+	
+	public init(socket: Socket) throws {
+		self.socket = socket
 		
 		try self.socket.setBlocking(mode: false)
 	}
@@ -42,8 +40,10 @@ public class AsyncSocket: ConnectionSocket {
 	// MARK: - Events
 	
 	/// Emitted when the connection is established with the server
-	public let connected = EventEmitter<Void>(name: "PG.StreamSocket.connected")
+	public let connected = EventEmitter<Void>(name: "PG.AsyncSocket.connected")
 	fileprivate var hasEmittedConnected = false
+	
+	public let closed = EventEmitter<Void>(name: "PG.AsyncSocket.closed")
 	
 	
 	// MARK: - Connection
@@ -54,29 +54,47 @@ public class AsyncSocket: ConnectionSocket {
 	}
 	
 	/// Start a connection to the server
-	public func connect() {
-		do {
-			try socket.connect(to: host, port: port)
-			self.connected.emit()
-			
-			
-			let readerSource = DispatchSource.makeReadSource(fileDescriptor: self.socket.socketfd, queue: self.queue)
-			readerSource.setEventHandler() {
-				self.readBuffer()
-			}
-			readerSource.setCancelHandler() {
-				self.close()
-			}
-			readerSource.resume()
-			self.readerSource = readerSource
-		} catch {
-			// TODO: handle errors
+	public func connect(host: String, port: Int32) throws {
+		try socket.connect(to: host, port: port)
+		self.connected.emit()
+		
+		
+		let readerSource = DispatchSource.makeReadSource(fileDescriptor: self.socket.socketfd, queue: self.queue)
+		readerSource.setEventHandler() {
+			self.readBuffer()
 		}
+		readerSource.setCancelHandler() {
+			self._close()
+		}
+		readerSource.resume()
+		self.readerSource = readerSource
+	}
+	
+	private func _close() {
+		if #available(OSX 10.12, *) {
+			dispatchPrecondition(condition: .onQueue(self.queue))
+		}
+		
+		if self.socket.socketfd > -1 {
+			self.socket.close()
+		}
+		
+		for write in writeQueue {
+			write.completion?(Error.closed)
+		}
+		writeQueue = []
+		
+		for read in readQueue {
+			read.completion?(.failure(Error.closed))
+		}
+		readQueue = []
+		
+		closed.emit()
 	}
 	
 	public func close() {
-		if self.socket.socketfd > -1 {
-			self.socket.close()
+		self.queue.async {
+			self._close()
 		}
 	}
 	
@@ -85,7 +103,7 @@ public class AsyncSocket: ConnectionSocket {
 	
 	struct WriteItem {
 		let data: Data
-		let completion: (() -> Void)?
+		let completion: ((Swift.Error?) -> Void)?
 	}
 	
 	private var writeQueue: [WriteItem] = []
@@ -95,7 +113,7 @@ public class AsyncSocket: ConnectionSocket {
 	/// - Parameters:
 	///   - data: The data to be written.
 	///   - completion: Callback called when the data has been written.
-	public func write(data: Data, completion: (() -> Void)? = nil) {
+	public func write(data: Data, completion: ((Swift.Error?) -> Void)? = nil) {
 		queue.async {
 			let item = WriteItem(data: data, completion: completion)
 			self.writeQueue.append(item)
@@ -114,12 +132,16 @@ public class AsyncSocket: ConnectionSocket {
 		
 		writeDispatchQueue.async {
 			for current in writeQueue {
-				let bytesWritten = try! self.socket.write(from: current.data)
-				guard bytesWritten == current.data.count else {
-//					print("bytesWritten: \(bytesWritten) of \(current.data.count)")
-					fatalError()
+				do {
+					let bytesWritten = try self.socket.write(from: current.data)
+					guard bytesWritten == current.data.count else {
+						fatalError("bytesWritten: \(bytesWritten) of \(current.data.count)")
+					}
+					
+					current.completion?(nil)
+				} catch {
+					current.completion?(error)
 				}
-				current.completion?()
 			}
 		}
 	}
@@ -130,16 +152,20 @@ public class AsyncSocket: ConnectionSocket {
 	private var inputBuffer = Data()
 	
 	fileprivate func readBuffer() {
-		_ = try! self.socket.read(into: &self.inputBuffer)
-		
-		if self.inputBuffer.count > 0  {
-			self.performRead()
+		do {
+			_ = try self.socket.read(into: &self.inputBuffer)
+			
+			if self.inputBuffer.count > 0  {
+				self.performRead()
+			}
+		} catch {
+			print("failed to read from socket: \(error)")
 		}
 	}
 	
 	struct ReadRequest {
 		let length: Int
-		let completion: ((Data) -> Void)?
+		let completion: ((Result<Data>) -> Void)?
 	}
 	
 	private var readQueue: [ReadRequest] = []
@@ -151,7 +177,7 @@ public class AsyncSocket: ConnectionSocket {
 	/// - Parameters:
 	///   - length: The number of bytes to read.
 	///   - completion: Called when the data has been read.
-	public func read(length: Int, completion: ((Data) -> Void)?) {
+	public func read(length: Int, completion: ((Result<Data>) -> Void)?) {
 		queue.async {
 			let request = ReadRequest(length: length, completion: completion)
 			self.readQueue.append(request)
@@ -175,7 +201,7 @@ public class AsyncSocket: ConnectionSocket {
 			readQueue.removeFirst()
 			
 			let range = offset..<current.length
-			current.completion?(Data(inputBuffer[range]))
+			current.completion?(.success(Data(inputBuffer[range])))
 			offset = range.endIndex
 		}
 		

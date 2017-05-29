@@ -46,8 +46,6 @@ public final class Connection {
 	
 	// MARK: - Events
 	
-	/// Emitted when the connection is established with the server
-	public let connected = EventEmitter<Void>(name: "PG.Connection.connected")
 	/// Emitted when the connection has authenticated.
 	public let loginSuccess = EventEmitter<Void>(name: "PG.Connection.loginSuccess")
 	
@@ -162,10 +160,14 @@ public final class Connection {
 		// ince we finish reading in a message, we can ask for the next one and the process starts over
 		
 		socket.read(length: 1 + 4) { (messageHeader) in
+			guard let messageHeader = messageHeader.value else { self.socket.close(); return }
+			
 			let byte: UInt8 = messageHeader[0..<1].withUnsafeBytes({ $0.pointee })
 			let length: UInt32 = UInt32(bigEndian: messageHeader[1..<5].withUnsafeBytes({ $0.pointee })) - 4
 			
 			self.socket.read(length: Int(length)) { data in
+				guard let data = data.value else { self.socket.close(); return }
+				
 				let messageType = BackendMessageType(rawValue: byte)
 				let message = BackendMessage(type: messageType, data: data)
 				

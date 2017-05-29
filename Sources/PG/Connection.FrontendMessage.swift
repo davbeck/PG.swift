@@ -127,6 +127,10 @@ extension Connection {
 	/// - Parameter message: The message
 	public func send(_ message: FrontendMessage) {
 		print("sending \(message)")
-		self.socket.write(data: message.data, completion: nil)
+		self.socket.write(data: message.data) { error in
+			if let error = error {
+				self.error.emit(error)
+			}
+		}
 	}
 }
