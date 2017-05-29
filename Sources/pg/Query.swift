@@ -24,9 +24,9 @@ public struct Query {
 		public let string: String
 		
 		/// The types to use for the statement, or nil to not specify a type
-		public let bindingTypes: [PostgresRepresentable.Type?]
+		public let bindingTypes: [PostgresCodable.Type?]
 		
-		fileprivate init(name: String = UUID().uuidString, string: String, bindingTypes: [PostgresRepresentable.Type?]) {
+		fileprivate init(name: String = UUID().uuidString, string: String, bindingTypes: [PostgresCodable.Type?]) {
 			self.name = name
 			self.string = string
 			self.bindingTypes = bindingTypes
@@ -57,13 +57,13 @@ public struct Query {
 	/// The types of the bindings values
 	///
 	/// Due to a limitation in the current version of swift, we cannot get the types of nil values.
-	public var currentBindingTypes: [PostgresRepresentable.Type?] {
+	public var currentBindingTypes: [PostgresCodable.Type?] {
 		return self.bindings.map({ value in
 			if let value = value {
 				return type(of: value)
 			} else {
 				// unfortunately swift doesn't keep track of nil types
-				// maybe in swift 4 we can conform Optional to PostgresRepresentable when it's wrapped type is?
+				// maybe in swift 4 we can conform Optional to PostgresCodable when it's wrapped type is?
 				return nil
 			}
 		})
@@ -80,7 +80,7 @@ public struct Query {
 	/// - Parameter name: The name to be used for the statement on the server. Names must be uique accross connections and it is recommended that you use the default, which will generate a UUID.
 	/// - Parameter types: The types to use for the prepared statement. Defaulst to `currentBindingTypes`.
 	/// - Returns: The statement that was created. This is also set on the receiver.
-	public mutating func createStatement(withName name: String = UUID().uuidString, types: [PostgresRepresentable.Type?]? = nil) -> Statement {
+	public mutating func createStatement(withName name: String = UUID().uuidString, types: [PostgresCodable.Type?]? = nil) -> Statement {
 		let statement = Statement(name: name, string: string, bindingTypes: types ?? self.currentBindingTypes)
 		self.statement = statement
 		
@@ -96,7 +96,7 @@ public struct Query {
 	/// The values to bind the query to
 	///
 	/// It is highly recommended that any dynamic or user generated values be used as bindings and not embeded in the query string. Bindings are processed on the server and escaped to avoid SQL injection.
-	public private(set) var bindings: [PostgresRepresentable?]
+	public private(set) var bindings: [PostgresCodable?]
 	
 	/// Emitted when the query is excecuted, either successfully or with an error
 	public let completed = EventEmitter<Result<QueryResult>>()
@@ -110,7 +110,7 @@ public struct Query {
 	///
 	/// - Parameter bindings: The new values to bind to.
 	/// - Throws: Query.Error if there is a prepared statement and it's types do not match.
-	public mutating func update(bindings: [PostgresRepresentable?]) throws {
+	public mutating func update(bindings: [PostgresCodable?]) throws {
 		if let statement = statement {
 			guard bindings.count == statement.bindingTypes.count else { throw Error.wrongNumberOfBindings }
 			
@@ -131,7 +131,7 @@ public struct Query {
 	/// - Parameters:
 	///   - string: The query string. Note that string interpolation should be strongly avoided. Use bindings instead.
 	///   - bindings: Any value bindings for the query string. Index 0 matches `$1` in the query string.
-	public init(_ string: String, bindings: [PostgresRepresentable?] = []) {
+	public init(_ string: String, bindings: [PostgresCodable?] = []) {
 		self.string = string
 		self.bindings = bindings
 	}
@@ -141,7 +141,7 @@ public struct Query {
 	/// - Parameters:
 	///   - string: The query string. Note that string interpolation should be strongly avoided. Use bindings instead.
 	///   - bindings: Any value bindings for the query string. Index 0 matches `$1` in the query string.
-	public init(_ string: String, _ bindings: PostgresRepresentable?...) {
+	public init(_ string: String, _ bindings: PostgresCodable?...) {
 		self.init(string, bindings: bindings)
 	}
 }

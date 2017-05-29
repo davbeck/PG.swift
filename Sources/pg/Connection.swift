@@ -193,7 +193,7 @@ public final class Connection {
 		
 		self.backendMessageReceived.emit(message)
 		
-//		print("processing: \(message)")
+		print("processing: \(message)")
 		
 		switch message.type {
 		case BackendMessageType.authentication:
@@ -362,7 +362,8 @@ extension Connection {
 	///   - name: The name of the "portal" (a bound statement) or an empty string to use the implicit portal.
 	///   - statementName: The name of the statement to bind to, or an empty string to use the implicit statement.
 	///   - parameters: The specific values to bind to. These must matcht the types of the statement.
-	func bind(name: String = "", statementName: String = "", parameters: [PostgresRepresentable?] = []) {
+	///   - resultModes: The mode that the results will be encoded with. Provide a single element to set all the result modes.
+	func bind(name: String = "", statementName: String = "", parameters: [PostgresCodable?] = [], resultModes: [Field.Mode] = []) {
 		self.transactionStatus = .notReady
 		
 		var message = FrontendMessage(.bind, capacity: 1 + 1 + 2 + (2 * parameters.count) + 2 + (4 * parameters.count) + 2) // minimum size with empty names and null values
@@ -371,13 +372,24 @@ extension Connection {
 		message.write(statementName)
 		
 		message.write(UInt16(parameters.count))
-		for _ in parameters {
-			message.write(UInt16(Field.Mode.text.rawValue)) // TODO: select best format
+		for parameter in parameters {
+			let mode: Field.Mode
+			
+			if parameter is PostgresBinaryEncodable {
+				mode = .binary
+			} else {
+				mode = .text
+			}
+			
+			message.write(mode.rawValue)
 		}
 		
 		message.write(UInt16(parameters.count))
 		for parameter in parameters {
-			if let parameter = parameter, let text = parameter.pgText {
+			if let parameter = parameter as? PostgresBinaryEncodable, let data = parameter.pgBinary {
+				message.write(Int32(data.count))
+				message.write(data)
+			} else if let parameter = parameter as? PostgresTextEncodable, let text = parameter.pgText {
 				let data = text.data()
 				message.write(Int32(data.count))
 				message.write(data)
@@ -386,8 +398,10 @@ extension Connection {
 			}
 		}
 		
-		// TODO: write out the prefered binary vs text result formats once we can parse binary results
-		message.write(UInt16(0))
+		message.write(UInt16(resultModes.count))
+		for mode in resultModes {
+			message.write(UInt16(mode.rawValue))
+		}
 		
 		self.send(message)
 	}

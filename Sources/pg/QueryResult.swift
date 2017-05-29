@@ -124,7 +124,7 @@ public class QueryResult {
 		///
 		/// - Parameter name: The index of the field to fetch.
 		/// - Returns: A value for the field or nil, if the value cannot be processed as type T.
-		public func value<T: PostgresRepresentable>(at index: Int) -> T? {
+		public func value<T: PostgresCodable>(at index: Int) -> T? {
 			// swift 4 should introduce generic subscripts
 			guard let data = rawRow[index] else { return nil }
 			let field = fields[index]
@@ -138,7 +138,7 @@ public class QueryResult {
 		///
 		/// - Parameter name: The name of the field to fetch.
 		/// - Returns: A value for the field or nil, if the value cannot be processed as type T.
-		public func value<T: PostgresRepresentable>(for name: String) -> T? {
+		public func value<T: PostgresCodable>(for name: String) -> T? {
 			guard let index = fields.index(where: { $0.name == name }) else { return nil }
 			
 			return value(at: index)

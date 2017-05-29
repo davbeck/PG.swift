@@ -234,10 +234,13 @@ public final class Client {
 	///
 	/// If a query is alredy in progress, or the client is not connected, this will be enqued until the connection is ready to process queries again.
 	///
+	/// Setting `resultsMode` to `.binary` can improve performance, particularly for the timestamp types, however the binary encodings are undocumented and should be used with caution. If a text encoded value can't be parsed, it will gracefully fallback to a String, but in binary mode it will fallback to a `DataSlice` that may not be meaningful.
+	///
 	/// - Parameters:
 	///   - query: The query to be execute.
+	///   - resultsMode: The encoding mode to use for the result types.
 	///   - callback: Called once the query has been executed and all data returned, or when an error occurs. Note that this is equivalent to the `query.completed` event.
-	public func exec(_ query: Query, callback: ((Result<QueryResult>) -> Void)?) {
+	public func exec(_ query: Query, resultsMode: Field.Mode = .text, callback: ((Result<QueryResult>) -> Void)?) {
 		if let callback = callback {
 			query.completed.once(callback)
 		}
@@ -279,7 +282,7 @@ public final class Client {
 			
 			do {
 				if query.needsExtendedExcecution {
-					try self.executeExtendedQuery(query, on: connection)
+					try self.executeExtendedQuery(query, resultsMode: resultsMode, on: connection)
 				} else {
 					self.executeSimpleQuery(query, on: connection)
 				}
@@ -297,7 +300,7 @@ public final class Client {
 		connection.simpleQuery(query.string)
 	}
 	
-	private func executeExtendedQuery(_ query: Query, on connection: Connection) throws {
+	private func executeExtendedQuery(_ query: Query, resultsMode: Field.Mode, on connection: Connection) throws {
 		if let statement = query.statement {
 			if !self.preparedStatements.contains(statement) {
 				guard !self.preparedStatements.contains(where: { $0.name == statement.name }) else {
@@ -317,7 +320,7 @@ public final class Client {
 			connection.parse(query: query.string, types: types)
 		}
 		
-		connection.bind(statementName: query.statement?.name ?? "", parameters: query.bindings)
+		connection.bind(statementName: query.statement?.name ?? "", parameters: query.bindings, resultModes: [resultsMode])
 		
 		connection.describePortal()
 		

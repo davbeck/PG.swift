@@ -1,3 +1,6 @@
+import Foundation
+
+
 public struct OID: RawRepresentable {
 	public let rawValue: UInt32
 	
@@ -19,8 +22,8 @@ public struct OID: RawRepresentable {
 	public static let bool = OID(16) // bool
 	
 	public static let text = OID(25) // text
-	public static let char = OID(1014) // char
-	public static let varchar = OID(1015) // varchar
+	public static let varchar = OID(1043) // varchar
+	public static let bpchar = OID(1042) // bpchar
 	
 	public static let date = OID(1082) // date
 	public static let timestamp = OID(1114) // timestamp without timezone
@@ -44,6 +47,8 @@ public struct OID: RawRepresentable {
 	public static let numericArray = OID(1231) // _numeric
 	public static let regprocArray = OID(1008) // _regproc
 	public static let textArray = OID(1009) // _text
+	public static let varcharArray = OID(1015) // _varchar
+	public static let charArray = OID(1014) // _char
 	public static let macaddrArray = OID(1040) // macaddr[]
 	public static let inetArray = OID(1041) // inet[]
 	public static let timestampArray = OID(1115) // timestamp without time zone[]
@@ -82,7 +87,7 @@ extension OID: ExpressibleByIntegerLiteral {
 	}
 }
 
-extension OID: PostgresRepresentable {
+extension OID: PostgresTextCodable, PostgresBinaryCodable {
 	public static var pgTypes: [OID] {
 		return [.oid]
 	}
@@ -94,5 +99,14 @@ extension OID: PostgresRepresentable {
 	
 	public var pgText: String? {
 		return rawValue.pgText
+	}
+	
+	public init?(pgBinary data: DataSlice, type: OID) {
+		guard let rawValue = UInt32(pgBinary: data, type: type) else { return nil }
+		self.init(rawValue)
+	}
+	
+	public var pgBinary: Data? {
+		return rawValue.pgBinary
 	}
 }

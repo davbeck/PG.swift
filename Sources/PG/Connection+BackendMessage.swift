@@ -7,7 +7,7 @@ extension Connection {
 	/// Postgre messages (almost) always start with a single byte indicating what type of message they are. The documentation refer to these by their ASCII character. The rawValue is the ASCII code point.
 	///
 	/// See https://www.postgresql.org/docs/devel/static/protocol-message-formats.html.
-	public struct BackendMessageType: RawRepresentable, ExpressibleByIntegerLiteral, Hashable {
+	public struct BackendMessageType: RawRepresentable, CustomDebugStringConvertible, ExpressibleByIntegerLiteral, Hashable {
 		public let rawValue: UInt8
 		
 		public init(rawValue: UInt8) {
@@ -39,6 +39,13 @@ extension Connection {
 		public static let bindComplete: BackendMessageType = 50 // 2
 		
 		public static let errorResponse: BackendMessageType = 69 // E
+		
+		
+		public var debugDescription: String {
+			let character = Character(UnicodeScalar(self.rawValue))
+			
+			return "PG.Connection.BackendMessageType(\(character) / \(self.rawValue))"
+		}
 	}
 	
 	

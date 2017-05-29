@@ -1,4 +1,7 @@
-extension Bool: PostgresRepresentable {
+import Foundation
+
+
+extension Bool: PostgresCodable, PostgresTextCodable, PostgresBinaryCodable {
 	public static var pgTypes: [OID] {
 		return [.bool]
 	}
@@ -18,5 +21,14 @@ extension Bool: PostgresRepresentable {
 		default:
 			self.init(false)
 		}
+	}
+	
+	public var pgBinary: Data? {
+		return Data([ self ? 1 : 0 ])
+	}
+	
+	public init?(pgBinary data: DataSlice, type: OID) {
+		// if any byte is not null
+		self.init(data.contains(where: { $0 != 0 }))
 	}
 }
