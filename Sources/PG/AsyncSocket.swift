@@ -93,9 +93,7 @@ public class AsyncSocket: ConnectionSocket {
 	}
 	
 	public func close() {
-		self.queue.async {
-			self._close()
-		}
+		self.readerSource?.cancel()
 	}
 	
 	
@@ -206,6 +204,6 @@ public class AsyncSocket: ConnectionSocket {
 		}
 		
 		// save the left overs for the next read
-		self.inputBuffer = Data(inputBuffer.suffix(from: offset))
+		self.inputBuffer.removeFirst(offset)
 	}
 }
