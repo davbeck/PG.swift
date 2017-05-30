@@ -50,7 +50,7 @@ This project is in it's very earliest stage. You can create a client that connec
 - [X] Support for Linux (using [BlueSocket](https://github.com/IBM-Swift/BlueSocket) and [`DispatchSources`](https://developer.apple.com/reference/dispatch/dispatchsource)).
 - [ ] Handle connection errors, disconnects and reconnects.
 - [ ] Support for `LISTEN` and `NOTIFY`.
-- [ ] Database pool for concurrent queries to the same server.
+- [X] Database pool for concurrent queries to the same server.
 
 ## Related projects
 

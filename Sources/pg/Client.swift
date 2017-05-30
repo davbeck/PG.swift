@@ -111,6 +111,10 @@ public final class Client {
 		self.config = config
 	}
 	
+	deinit {
+		self.disconnect()
+	}
+	
 	
 	// MARK: - Notifications
 	
@@ -154,6 +158,10 @@ public final class Client {
 		}
 	}
 	
+	public func disconnect() {
+		self.connection?.socket.close()
+	}
+	
 	/// Create a connection with the custom socket
 	///
 	/// Normally you call `connect(completion:) instead of this method, but if you want to use your own custom socket connection, you can use this method to connect instead.
@@ -164,8 +172,8 @@ public final class Client {
 	public func connect(with socket: ConnectionSocket, completion: ((Swift.Error?) -> Void)?) {
 		do {
 			if !socket.isConnected {
-				socket.connected.once {
-					self.startup(with: socket, completion: completion)
+				socket.connected.once { [weak self] in
+					self?.startup(with: socket, completion: completion)
 				}
 				
 				try socket.connect(host: config.host, port: Int32(config.port))
@@ -183,30 +191,31 @@ public final class Client {
 		precondition(socket.isConnected)
 		self.connected.emit()
 		
-		socket.closed.once(on: self.queue) {
-			self.connection = nil
+		socket.closed.once(on: self.queue) { [weak self] in
+			self?.connection = nil
 			
-			self.disconnected.emit()
+			self?.disconnected.emit()
 		}
 		
 		let connection = Connection(socket: socket)
 		self.connection = connection
 		
 		
-		connection.authenticationCleartextPassword.observe(on: self.queue) {
-			connection.sendPassword(self.config.password ?? "")
+		connection.authenticationCleartextPassword.observe(on: self.queue) { [weak self] in
+			connection.sendPassword(self?.config.password ?? "")
 		}
 		
-		connection.authenticationMD5Password.observe { salt in
+		connection.authenticationMD5Password.observe { [weak self] salt in
+			guard let `self` = self else { return }
 			connection.sendMD5Authentication(username: self.config.user, password: self.config.password ?? "", salt: salt)
 		}
 		
 		
-		connection.loginSuccess.once(on: self.queue) {
+		connection.loginSuccess.once(on: self.queue) { [weak self] in
 			completion?(nil)
 			completion = nil
 			
-			self.loginSuccess.emit()
+			self?.loginSuccess.emit()
 		}
 		
 		connection.error.once(on: self.queue) { (error) in
@@ -214,8 +223,8 @@ public final class Client {
 			completion = nil
 		}
 		
-		connection.readyForQuery.observe(on: self.queue) { _ in
-			self.executeQuery()
+		connection.readyForQuery.observe(on: self.queue) { [weak self] _ in
+			self?.executeQuery()
 		}
 		
 		

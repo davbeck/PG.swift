@@ -250,6 +250,33 @@ class ClientTests: XCTestCase {
 		waitForExpectations(timeout: 5)
 	}
 	
+	func testPool() {
+		let pool = Pool(Client.Config(host: self.host, user: self.user, password: self.password, database: self.database))
+		let group = DispatchGroup()
+		
+		for _ in 0..<100 {
+			group.enter()
+			pool.exec("SELECT * FROM example;") { result in
+				switch result {
+				case .success(let result):
+					XCTAssertEqual(result.fields.count, 19)
+					XCTAssertEqual(result.rows.count, 2)
+					XCTAssertEqual(result.rowCount, 2)
+				case .failure(let error):
+					XCTFail("error: \(error)")
+				}
+				
+				group.leave()
+			}
+		}
+		
+		let expectation = self.expectation(description: "query")
+		group.notify(queue: .main) {
+			expectation.fulfill()
+		}
+		self.waitForExpectations(timeout: 5)
+	}
+	
 
     static var allTests: [(String, (ClientTests) -> () -> Void)] = [
         ("testExample", testInvalidURL),
@@ -259,5 +286,6 @@ class ClientTests: XCTestCase {
         ("testBindingUpdate", testBindingUpdate),
         ("testPreparedStatement", testPreparedStatement),
         ("testBinaryResults", testBinaryResults),
+        ("testPool", testPool),
     ]
 }
