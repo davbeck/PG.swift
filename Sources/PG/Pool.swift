@@ -28,14 +28,7 @@ public class Pool {
 	public let config: Client.Config
 	
 	
-	/// Create a new client
-	///
-	/// You must call `connect` on the returned client.
-	///
-	/// - Parameter config: The configuration to use for the client.
-	
-	
-	/// Create a new client
+	/// Create a new pool.
 	///
 	/// You can start issuing queries on the pool immediately. As queries are queued, new clients will be created and connected and the queries excecuted when the clients become available.
 	///
