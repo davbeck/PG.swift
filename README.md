@@ -14,20 +14,16 @@ See [Swift Package Manager](https://swift.org/package-manager/#example-usage).
 import PG
 
 let config = Client.Config(user: "postgres", database: "pg_swift_tests")
-let client = Client(config)
+let pool = Pool(config)
 
-client.connect() { error in
-	guard error == nil else { return }
-
-	let id = UUID(uuidString: "A0EEBC99-9C0B-4EF8-BB6D-6BB9BD380A11")
-	let query = Query("SELECT * FROM example WHERE id = $1;", id)
-	client.exec(query) { result in
-		switch result {
-		case .success(let result):
-			print("name: \(result.rows.first?["name"])")
-		case .failure(let error):
-			print("failed to excecute query: \(error)")
-		}
+let id = UUID(uuidString: "A0EEBC99-9C0B-4EF8-BB6D-6BB9BD380A11")
+let query = Query("SELECT * FROM example WHERE id = $1;", id)
+pool.exec(query) { result in
+	switch result {
+	case .success(let result):
+		print("name: \(result.rows.first?["name"])")
+	case .failure(let error):
+		print("failed to excecute query: \(error)")
 	}
 }
 ```
