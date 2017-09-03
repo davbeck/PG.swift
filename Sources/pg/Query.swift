@@ -131,7 +131,7 @@ public struct Query {
 	/// - Parameters:
 	///   - string: The query string. Note that string interpolation should be strongly avoided. Use bindings instead.
 	///   - bindings: Any value bindings for the query string. Index 0 matches `$1` in the query string.
-	public init(_ string: String, bindings: [PostgresCodable?] = []) {
+	public init(_ string: String, bindings: [PostgresCodable?]) {
 		self.string = string
 		self.bindings = bindings
 	}

@@ -1,7 +1,7 @@
 import Foundation
 
 
-public protocol IntegerPostgresCodable: PostgresTextCodable, PostgresBinaryCodable, Integer, CustomStringConvertible {
+public protocol IntegerPostgresCodable: PostgresTextCodable, PostgresBinaryCodable, Integer {
 	init?(_ text: String, radix: Int)
 }
 
@@ -18,9 +18,9 @@ extension PostgresTextDecodable where Self: SignedInteger {
 }
 
 extension PostgresTextDecodable where Self: UnsignedInteger {
-	public var pgText: String? {
-		return String.init(self)
-	}
+    public var pgText: String? {
+        return String.init(self)
+    }
 }
 
 extension PostgresBinaryDecodable where Self: NetworkOrderable {
@@ -39,15 +39,23 @@ extension PostgresBinaryEncodable where Self: NetworkOrderable {
 
 
 extension Int16: IntegerPostgresCodable {
-	public static var pgTypes: [OID] {
+    public static var pgTypes: [OID] {
 		return [.int2]
 	}
+    
+    public var pgText: String? {
+        return String(self)
+    }
 }
 
 extension UInt16: IntegerPostgresCodable {
 	public static var pgTypes: [OID] {
 		return [.int2]
 	}
+    
+    public var pgText: String? {
+        return String(self)
+    }
 }
 
 
@@ -55,12 +63,20 @@ extension Int32: IntegerPostgresCodable {
 	public static var pgTypes: [OID] {
 		return [.int4]
 	}
+    
+    public var pgText: String? {
+        return String(self)
+    }
 }
 
 extension UInt32: IntegerPostgresCodable {
 	public static var pgTypes: [OID] {
 		return [.int4]
 	}
+    
+    public var pgText: String? {
+        return String(self)
+    }
 }
 
 
@@ -68,12 +84,20 @@ extension Int64: IntegerPostgresCodable {
 	public static var pgTypes: [OID] {
 		return [.int8]
 	}
+    
+    public var pgText: String? {
+        return String(self)
+    }
 }
 
 extension UInt64: IntegerPostgresCodable {
 	public static var pgTypes: [OID] {
 		return [.int8]
 	}
+    
+    public var pgText: String? {
+        return String(self)
+    }
 }
 
 
@@ -81,6 +105,10 @@ extension Int: IntegerPostgresCodable {
 	public static var pgTypes: [OID] {
 		return [.int8, .int4, .int2]
 	}
+    
+    public var pgText: String? {
+        return String(self)
+    }
 	
 	public init?(pgBinary data: DataSlice, type: OID) {
 		switch data.count {
@@ -105,6 +133,10 @@ extension UInt: IntegerPostgresCodable {
 	public static var pgTypes: [OID] {
 		return [.int8, .int4, .int2]
 	}
+    
+    public var pgText: String? {
+        return String(self)
+    }
 	
 	public init?(pgBinary data: DataSlice, type: OID) {
 		switch data.count {
