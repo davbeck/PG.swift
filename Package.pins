@@ -2,10 +2,16 @@
   "autoPin": true,
   "pins": [
     {
-      "package": "CryptoSwift",
+      "package": "CommonCrypto",
       "reason": null,
-      "repositoryURL": "https://github.com/krzyzanowskim/CryptoSwift.git",
-      "version": "0.6.9"
+      "repositoryURL": "https://github.com/IBM-Swift/CommonCrypto.git",
+      "version": "0.1.4"
+    },
+    {
+      "package": "Cryptor",
+      "reason": null,
+      "repositoryURL": "https://github.com/IBM-Swift/BlueCryptor.git",
+      "version": "0.8.16"
     },
     {
       "package": "Socket",

@@ -1,4 +1,8 @@
-FROM swift:3.1
+FROM kylef/swiftenv
+RUN swiftenv install 3.1
+
+RUN apt-get -qq update
+RUN apt-get install -y openssl libssl-dev
 
 RUN mkdir /app
 WORKDIR /app
