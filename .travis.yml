@@ -5,8 +5,13 @@ language: generic
 sudo: required
 dist: trusty
 osx_image: xcode8.3
+services:
+- postgresql
 install:
 - curl -sL https://gist.github.com/kylef/5c0475ff02b7c7671d2a/raw/621ef9b29bbb852fdfd2e10ed147b321d792c1e4/swiftenv-install.sh | bash
+before_script:
+- psql -c 'create database pg_swift_tests;' -U postgres
 script:
+- psql -f Tests/test.sql -U postgres
 - . ~/.swiftenv/init
-- swift build
+- swift test
