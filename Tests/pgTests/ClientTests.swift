@@ -1,4 +1,5 @@
 import XCTest
+import Dispatch
 @testable import PG
 
 class ClientTests: XCTestCase {

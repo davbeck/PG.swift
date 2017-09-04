@@ -1,4 +1,5 @@
 import Foundation
+import Dispatch
 
 
 /// A pool of connections to postgres servers.
