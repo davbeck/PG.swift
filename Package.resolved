@@ -1,0 +1,43 @@
+{
+  "object": {
+    "pins": [
+      {
+        "package": "CommonCrypto",
+        "repositoryURL": "https://github.com/IBM-Swift/CommonCrypto.git",
+        "state": {
+          "branch": null,
+          "revision": "02a5c0520b1a0a7a6c606f0273fcd161973722fa",
+          "version": "0.1.4"
+        }
+      },
+      {
+        "package": "CryptoSwift",
+        "repositoryURL": "https://github.com/krzyzanowskim/CryptoSwift.git",
+        "state": {
+          "branch": null,
+          "revision": "85c659ac534c5f8a72eb3b72488fb941e82763bd",
+          "version": "0.6.9"
+        }
+      },
+      {
+        "package": "Cryptor",
+        "repositoryURL": "https://github.com/IBM-Swift/BlueCryptor.git",
+        "state": {
+          "branch": null,
+          "revision": "40c20108e45bd17f4856b0fa73699e56d1c5f1e6",
+          "version": "0.8.16"
+        }
+      },
+      {
+        "package": "Socket",
+        "repositoryURL": "https://github.com/IBM-Swift/BlueSocket",
+        "state": {
+          "branch": null,
+          "revision": "c53f2459eeb60f7250f2dbc40e01685bae9f1526",
+          "version": "0.12.61"
+        }
+      }
+    ]
+  },
+  "version": 1
+}

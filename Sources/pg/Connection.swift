@@ -1,6 +1,14 @@
 import Foundation
 import Dispatch
-import CryptoSwift
+import Cryptor
+
+
+func md5(_ text: String) -> String {
+    let md5 = Digest(using: .md5)
+    _ = md5.update(string: text)
+    let digest = md5.final()
+    return CryptoUtils.hexString(from: digest)
+}
 
 
 /// The underlying connection to a Postgre server
@@ -353,7 +361,8 @@ extension Connection {
 	///   - password: The password to authenticate with.
 	///   - salt: The salt returned from the server.
 	func sendMD5Authentication(username: String, password: String, salt: DataSlice) {
-		let passwordHash = "md5" + ((password + username).data().md5().toHexString().data() + salt).md5().toHexString()
+        let salt = String(salt) ?? ""
+		let passwordHash = "md5" + md5(md5(password + username) + salt)
 		
 		self.sendPassword(passwordHash)
 	}

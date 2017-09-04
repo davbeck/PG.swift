@@ -34,8 +34,12 @@ class ClientTests: XCTestCase {
 		let connectExpectation = self.expectation(description: "connect client")
 		client.connect(completion: { error in
 			XCTAssertNil(error)
+            guard let connection = client.connection else {
+                connectExpectation.fulfill()
+                return XCTFail()
+            }
 			
-			client.connection!.readyForQuery.once() { transactionStatus in
+			connection.readyForQuery.once() { transactionStatus in
 				XCTAssertEqual(transactionStatus, .idle)
 				XCTAssertEqual(client.connection?.transactionStatus, .idle)
 				

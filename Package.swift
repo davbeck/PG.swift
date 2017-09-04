@@ -11,8 +11,8 @@ let package = Package(
 		),
 	],
 	dependencies: [
+        .Package(url: "https://github.com/IBM-Swift/BlueCryptor.git", majorVersion: 0, minor: 8),
 		.Package(url: "https://github.com/IBM-Swift/BlueSocket", majorVersion: 0, minor: 12),
-		.Package(url: "https://github.com/krzyzanowskim/CryptoSwift.git", majorVersion: 0),
 	],
 	swiftLanguageVersions: [3]
 )
