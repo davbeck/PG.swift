@@ -11,6 +11,7 @@ let package = Package(
 		),
 	],
 	dependencies: [
+        .Package(url: "https://github.com/davbeck/AsyncKit.git", majorVersion: 0, minor: 0),
         .Package(url: "https://github.com/IBM-Swift/BlueCryptor.git", majorVersion: 0, minor: 8),
 		.Package(url: "https://github.com/IBM-Swift/BlueSocket", majorVersion: 0, minor: 12),
 	],

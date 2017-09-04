@@ -1,6 +1,7 @@
 import Socket
 import Foundation
 import Dispatch
+import AsyncKit
 
 
 /// A socket that is implimented with [AsyncSocket](https://github.com/IBM-Swift/AsyncSocket)

@@ -2,6 +2,12 @@
   "autoPin": true,
   "pins": [
     {
+      "package": "AsyncKit",
+      "reason": null,
+      "repositoryURL": "https://github.com/davbeck/AsyncKit.git",
+      "version": "0.0.1"
+    },
+    {
       "package": "CommonCrypto",
       "reason": null,
       "repositoryURL": "https://github.com/IBM-Swift/CommonCrypto.git",

@@ -1,5 +1,6 @@
 import Foundation
 import Dispatch
+import AsyncKit
 
 
 /// A pool of connections to postgres servers.
