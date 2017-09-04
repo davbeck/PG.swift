@@ -1,4 +1,5 @@
 import XCTest
+import Dispatch
 @testable import PG
 
 class ClientTests: XCTestCase {
@@ -280,16 +281,4 @@ class ClientTests: XCTestCase {
 		}
 		self.waitForExpectations(timeout: 5)
 	}
-	
-
-    static var allTests: [(String, (ClientTests) -> () -> Void)] = [
-        ("testExample", testInvalidURL),
-        ("testConnect", testConnect),
-        ("testSimpleQuery", testSimpleQuery),
-        ("testQueryBindings", testQueryBindings),
-        ("testBindingUpdate", testBindingUpdate),
-        ("testPreparedStatement", testPreparedStatement),
-        ("testBinaryResults", testBinaryResults),
-        ("testPool", testPool),
-    ]
 }

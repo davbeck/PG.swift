@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+bin/sourcery  \
+  --sources Tests/PGTests \
+  --templates Templates/LinuxMain.stencil \
+  --output Tests/LinuxMain.swift \
+  --args testimports='@testable import PGTests'
+
+docker-compose run test

@@ -45,9 +45,4 @@ class DateCodingTests: XCTestCase {
 			Date(timeIntervalSince1970: 1495237066.398)
 		)
 	}
-	
-	
-	static var allTests: [(String, (DateCodingTests) -> () -> Void)] = [
-		("testTimestampWithoutTimezone", testTimestampWithoutTimezone),
-		]
 }

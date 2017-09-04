@@ -1,4 +1,4 @@
-FROM swift:3
+FROM swift:3.1
 
 RUN mkdir /app
 WORKDIR /app
