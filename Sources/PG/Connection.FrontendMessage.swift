@@ -43,7 +43,7 @@ extension Connection {
 		public var debugDescription: String {
 			let character = Character(UnicodeScalar(self.rawValue))
 			
-			return "PG.Connection.BackendMessageType(\(character) / \(self.rawValue))"
+			return "PG.Connection.FrontendMessageType(\(character) / \(self.rawValue))"
 		}
 	}
 	

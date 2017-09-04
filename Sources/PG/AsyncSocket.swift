@@ -209,6 +209,6 @@ public class AsyncSocket: ConnectionSocket {
 		}
 		
 		// save the left overs for the next read
-		self.inputBuffer.removeFirst(offset)
+		self.inputBuffer.removeFirst(offset - inputBuffer.startIndex)
 	}
 }
