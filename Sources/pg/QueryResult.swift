@@ -20,6 +20,8 @@ public class QueryResult {
 		case move
 		case fetch
 		case copy
+		case createDatabase
+		case dropDatabase
 	}
 	
 	/// The kind of query that was excecuted
@@ -38,22 +40,31 @@ public class QueryResult {
 	public let typeParser: TypeParser
 	
 	init(commandResponse: String, fields: [Field], rows: [[DataSlice?]], typeParser: TypeParser) throws {
-		let responseComponents = commandResponse.components(separatedBy: " ")
-		guard
-			responseComponents.count >= 2,
-			let kind = Kind(rawValue: responseComponents[0].lowercased()),
-			let rowCount = Int(responseComponents[1])
-		else { throw Error.invalidCommandResponse }
-		
-		if kind == .select {
-			guard rowCount == rows.count else {
-				throw Error.mismatchedRowCount(commandResponse, rows.count)
+		if commandResponse == "CREATE DATABASE" {
+			self.kind = .createDatabase
+			self.rowCount = 1
+		} else if commandResponse == "DROP DATABASE" {
+			self.kind = .dropDatabase
+			self.rowCount = 1
+		} else {
+			let responseComponents = commandResponse.components(separatedBy: " ")
+			guard
+				responseComponents.count >= 2,
+				let kind = Kind(rawValue: responseComponents[0].lowercased()),
+				let rowCount = Int(responseComponents[1])
+				else { throw Error.invalidCommandResponse }
+			
+			if kind == .select {
+				guard rowCount == rows.count else {
+					throw Error.mismatchedRowCount(commandResponse, rows.count)
+				}
 			}
+			
+			self.kind = kind
+			self.rowCount = rowCount
 		}
 		
-		self.kind = kind
 		self.fields = fields
-		self.rowCount = rowCount
 		self.typeParser = typeParser
 		self.rows = rows.map({ Row(fields: fields, typeParser: typeParser, rawRow: $0) })
 	}

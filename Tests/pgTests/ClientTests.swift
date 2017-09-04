@@ -8,7 +8,7 @@ class ClientTests: XCTestCase {
 	private let password = ProcessInfo.processInfo.environment["POSTGRES_PASS"] ?? "postgres"
 	private let database = ProcessInfo.processInfo.environment["POSTGRES_DB"] ?? "pg_swift_tests"
 	
-    func testInvalidURL() {
+	func testInvalidURL() {
 		do {
 			_ = try Client.Config(url: URL(string: "http://someuser:somepassword@somehost:381/somedatabase")!)
 			XCTFail("creating client with invalid url succeeded")
@@ -21,7 +21,24 @@ class ClientTests: XCTestCase {
 		} catch {
 			XCTFail("creating client with valid url failed: \(error)")
 		}
-    }
+	}
+	
+	func testCreateTable() {
+		let name = "pg_swift_tests_" + String(UUID().uuidString.prefix(5))
+		let config = Client.Config(host: host, user: user, password: password, database: database)
+		
+		let expectation = self.expectation(description: "create table")
+		Client.createDatabase(named: name, using: config) { (error) in
+			XCTAssertNil(error)
+			
+			Client.dropDatabase(named: name, using: config) { (error) in
+				XCTAssertNil(error)
+				
+				expectation.fulfill()
+			}
+		}
+		self.wait(for: [expectation], timeout: 10)
+	}
 	
 	func testConnect() {
 		let client = Client(Client.Config(host: host, user: user, password: password, database: database))

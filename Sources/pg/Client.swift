@@ -8,6 +8,7 @@ public final class Client {
 		case invalidConnectionURL
 		case connectionFailure
 		case statementWithNameAlreadyExists
+		case noDatabaseNameProvided
 	}
 	
 	
@@ -114,6 +115,68 @@ public final class Client {
 	
 	deinit {
 		self.disconnect()
+	}
+	
+	
+	/// Create a database using the given connection config
+	///
+	/// This is a specialized static method similar to [`createdb`](https://www.postgresql.org/docs/9.1/static/manage-ag-createdb.html). Because you cannot connect to a database until it has first been created, it is often desirable to create a temporary connection to create it before creating the real connection.
+	///
+	/// - Parameters:
+	///   - name: The name of the database to create. If nil, the database in Config will be used.
+	///   - config: The Config to use to connect to the server and importantly, the database name to create if name is nil.
+	///   - completion: The callback to use once the database has been created or an error occurs.
+	public static func createDatabase(named explicitName: String? = nil, using config: Config, completion: @escaping ((Swift.Error?) -> Void)) {
+		var config = config
+		guard let name = explicitName ?? config.database else { return completion(Error.noDatabaseNameProvided) }
+		
+		if explicitName == nil {
+			// connect to the default database
+			config.database = nil
+		}
+		let client = Client(config)
+		
+		client.connect { (error) in
+			guard error == nil else { return completion(error) }
+			
+			// prepared statements are not allowed for creating a database
+			client.exec(Query("CREATE DATABASE \(name)"), callback: { (result) in
+				completion(result.error)
+				
+				client.disconnect()
+			})
+		}
+	}
+	
+	
+	/// Drop a database using the given connection config
+	///
+	/// This is a specialized static method similar to [`dropdb`](https://www.postgresql.org/docs/8.4/static/manage-ag-dropdb.html). Because you cannot drop the current database, it is often desirable to create a temporary connection to drop it.
+	///
+	/// - Parameters:
+	///   - name: The name of the database to create. If nil, the database in Config will be used.
+	///   - config: The Config to use to connect to the server and importantly, the database name to create if name is nil.
+	///   - completion: The callback to use once the database has been created or an error occurs.
+	public static func dropDatabase(named explicitName: String? = nil, using config: Config, completion: @escaping ((Swift.Error?) -> Void)) {
+		var config = config
+		guard let name = explicitName ?? config.database else { return completion(Error.noDatabaseNameProvided) }
+		
+		if explicitName == nil {
+			// connect to the default database
+			config.database = nil
+		}
+		let client = Client(config)
+		
+		client.connect { (error) in
+			guard error == nil else { return completion(error) }
+			
+			// prepared statements are not allowed for dropping a database
+			client.exec(Query("DROP DATABASE \(name)"), callback: { (result) in
+				completion(result.error)
+				
+				client.disconnect()
+			})
+		}
 	}
 	
 	
@@ -414,3 +477,4 @@ public final class Client {
 		}
 	}
 }
+
