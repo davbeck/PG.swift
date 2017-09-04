@@ -9,5 +9,6 @@ WORKDIR /app
 
 ADD Package.swift /app/Package.swift
 ADD Package.pins /app/Package.pins
+ADD Package.resolved /app/Package.resolved
 RUN swift package fetch
 ADD . /app

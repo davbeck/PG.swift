@@ -53,10 +53,14 @@ public class AsyncSocket: ConnectionSocket {
 	public var isConnected: Bool {
 		return socket.isConnected
 	}
+    
+    public func connect(host: String, port: Int32) throws {
+        try self.connect(host: host, port: port, timeout: 30)
+    }
 	
 	/// Start a connection to the server
-	public func connect(host: String, port: Int32) throws {
-		try socket.connect(to: host, port: port)
+    public func connect(host: String, port: Int32, timeout: UInt) throws {
+		try socket.connect(to: host, port: port, timeout: timeout)
 		self.connected.emit()
 		
 		
@@ -199,7 +203,7 @@ public class AsyncSocket: ConnectionSocket {
 			guard inputBuffer.count >= current.length else { break }
 			readQueue.removeFirst()
 			
-			let range = offset..<current.length
+            let range = offset..<(offset + current.length)
 			current.completion?(.success(Data(inputBuffer[range])))
 			offset = range.endIndex
 		}
