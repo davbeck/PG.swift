@@ -22,6 +22,8 @@ public class QueryResult {
 		case copy
 		case createDatabase
 		case dropDatabase
+		case createTable
+		case dropTable
 	}
 	
 	/// The kind of query that was excecuted
@@ -40,13 +42,21 @@ public class QueryResult {
 	public let typeParser: TypeParser
 	
 	init(commandResponse: String, fields: [Field], rows: [[DataSlice?]], typeParser: TypeParser) throws {
-		if commandResponse == "CREATE DATABASE" {
+		switch commandResponse {
+		case "CREATE DATABASE":
 			self.kind = .createDatabase
 			self.rowCount = 1
-		} else if commandResponse == "DROP DATABASE" {
+		case "DROP DATABASE":
 			self.kind = .dropDatabase
 			self.rowCount = 1
-		} else {
+		case "CREATE TABLE":
+			self.kind = .createTable
+			self.rowCount = 1
+		case "DROP TABLE":
+			self.kind = .dropTable
+			self.rowCount = 1
+		default:
+			print("commandResponse\(commandResponse)")
 			let responseComponents = commandResponse.components(separatedBy: " ")
 			guard
 				responseComponents.count >= 2,
@@ -172,3 +182,4 @@ extension Dictionary where Key == String, Value == Any {
 		}
 	}
 }
+
