@@ -27,6 +27,8 @@ public struct ServerError: Swift.Error {
 	
 	internal(set) public var info: [(Field, String)]
 	
+	internal(set) public var query: Query?
+	
 	internal init() {
 		info = []
 	}
@@ -41,6 +43,26 @@ public struct ServerError: Swift.Error {
 		return info.lazy.filter({ $0.0 == field }).map({ $0.1 })
 	}
 	
+	public enum Severity: String {
+		case warning = "WARNING"
+		case notice = "NOTICE"
+		case debug = "DEBUG"
+		case info = "INFO"
+		case log = "LOG"
+		
+		case error = "ERROR"
+		case fatal = "FATAL"
+		case panic = "PANIC"
+	}
+	
+	var severity: Severity {
+		guard
+			let string = self[.severity].first,
+			let severity = Severity(rawValue: string)
+			else { return .error }
+		
+		return severity
+	}
 	
 	var localizedSeverity: String? {
 		return self[.localizedSeverity].first ?? self[.severity].first

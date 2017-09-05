@@ -9,6 +9,8 @@ public final class Client {
 		case connectionFailure
 		case statementWithNameAlreadyExists
 		case noDatabaseNameProvided
+		case connecitonLost
+		case notConnected
 	}
 	
 	
@@ -281,18 +283,23 @@ public final class Client {
 		
 		
 		connection.loginSuccess.once(on: self.queue) { [weak self] in
-			completion?(nil)
-			completion = nil
-			
 			self?.loginSuccess.emit()
 		}
 		
-		connection.error.once(on: self.queue) { (error) in
+		connection.error.observe(on: self.queue) { (error) in
 			completion?(error)
 			completion = nil
+			
+			if let error = error as? ServerError,
+				error.severity == .fatal || error.severity == .panic {
+				socket.close()
+			}
 		}
 		
 		connection.readyForQuery.observe(on: self.queue) { [weak self] _ in
+			completion?(nil) // wait until everything is fine to send completion
+			completion = nil
+			
 			self?.executeQuery()
 		}
 		
@@ -346,6 +353,11 @@ public final class Client {
 			query.completed.once(callback)
 		}
 		
+		guard self.isConnected else {
+			query.completed.emit(.failure(Error.notConnected))
+			return
+		}
+		
 		enqueuQueryOperation { connection in
 			var observers: [AnyEventEmitterObserver] = []
 			
@@ -359,7 +371,18 @@ public final class Client {
 			})
 			
 			
-			observers.append(connection.error.once(on: self.queue) { error in
+			observers.append(connection.socket.closed.once(on: self.queue) {
+				query.completed.emit(Result.failure(Error.connecitonLost))
+				
+				for observer in observers {
+					observer.remove()
+				}
+			})
+			
+			observers.append(connection.errorResponse.once(on: self.queue) { error in
+				var error = error
+				error.query = query
+				
 				query.completed.emit(Result.failure(error))
 				
 				for observer in observers {
@@ -482,4 +505,3 @@ public final class Client {
 		}
 	}
 }
-
