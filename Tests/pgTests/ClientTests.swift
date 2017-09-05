@@ -31,10 +31,15 @@ class ClientTests: XCTestCase {
 		Client.createDatabase(named: name, using: config) { (error) in
 			XCTAssertNil(error)
 			
-			Client.dropDatabase(named: name, using: config) { (error) in
+			// duplicate create statements should be ignored
+			Client.createDatabase(named: name, using: config) { (error) in
 				XCTAssertNil(error)
 				
-				expectation.fulfill()
+				Client.dropDatabase(named: name, using: config) { (error) in
+					XCTAssertNil(error)
+					
+					expectation.fulfill()
+				}
 			}
 		}
 		self.wait(for: [expectation], timeout: 10)
