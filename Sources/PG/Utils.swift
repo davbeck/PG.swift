@@ -20,6 +20,12 @@ extension Data {
 	}
 }
 
+func + (_ lhs: Data, _ rhs: Data) -> Data {
+	var result = lhs
+	result.append(rhs)
+	return result
+}
+
 extension Slice where Base == Data {
 	/// Access the bytes in the data.
 	///

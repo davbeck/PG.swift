@@ -3,9 +3,9 @@ import Dispatch
 import Cryptor
 
 
-func md5(_ text: String) -> String {
+func md5(_ text: Data) -> String {
     let md5 = Digest(using: .md5)
-    _ = md5.update(string: text)
+    _ = md5.update(data: text)
     let digest = md5.final()
     return CryptoUtils.hexString(from: digest)
 }
@@ -354,6 +354,12 @@ extension Connection {
 	}
 	
 	
+	static func md5AuthenticationResponse(username: String, password: String, salt: Slice<Data>) -> String {
+		let passwordHash = "md5" + md5(md5((password + username).data()).data() + Data(salt))
+		
+		return passwordHash
+	}
+	
 	/// Hashes and sends an MD5 authentication response.
 	///
 	/// - Parameters:
@@ -361,8 +367,7 @@ extension Connection {
 	///   - password: The password to authenticate with.
 	///   - salt: The salt returned from the server.
 	func sendMD5Authentication(username: String, password: String, salt: Slice<Data>) {
-        let salt = String(salt) ?? ""
-		let passwordHash = "md5" + md5(md5(password + username) + salt)
+		let passwordHash = Connection.md5AuthenticationResponse(username: username, password: password, salt: salt)
 		
 		self.sendPassword(passwordHash)
 	}

@@ -18,6 +18,11 @@ extension ClientTests {
     ("testPool", testPool)
   ]
 }
+extension ConnectionTests {
+  static var allTests: [(String, (ConnectionTests) -> () throws -> Void)] = [
+    ("testMD5", testMD5)
+  ]
+}
 extension DateCodingTests {
   static var allTests: [(String, (DateCodingTests) -> () throws -> Void)] = [
     ("testTimestampWithoutTimezone", testTimestampWithoutTimezone),
@@ -28,6 +33,7 @@ extension DateCodingTests {
 // swiftlint:disable trailing_comma
 XCTMain([
   testCase(ClientTests.allTests),
+  testCase(ConnectionTests.allTests),
   testCase(DateCodingTests.allTests),
 ])
 // swiftlint:enable trailing_comma
