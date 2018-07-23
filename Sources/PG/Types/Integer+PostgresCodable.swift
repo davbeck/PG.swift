@@ -18,7 +18,7 @@ extension PostgresTextDecodable where Self: FixedWidthInteger {
 }
 
 extension PostgresBinaryDecodable where Self: NetworkOrderable {
-	public init?(pgBinary data: DataSlice, type: OID) {
+	public init?(pgBinary data: Slice<Data>, type: OID) {
 		guard data.count == MemoryLayout<Self>.size else { return nil }
 		self.init(bigEndian: data.withUnsafeBytes({ $0.pointee }))
 	}
@@ -104,7 +104,7 @@ extension Int: IntegerPostgresCodable {
         return String(self)
     }
 	
-	public init?(pgBinary data: DataSlice, type: OID) {
+	public init?(pgBinary data: Slice<Data>, type: OID) {
 		switch data.count {
 		case 8:
 			self.init(Int64(pgBinary: data, type: type) ?? 0)
@@ -132,7 +132,7 @@ extension UInt: IntegerPostgresCodable {
         return String(self)
     }
 	
-	public init?(pgBinary data: DataSlice, type: OID) {
+	public init?(pgBinary data: Slice<Data>, type: OID) {
 		switch data.count {
 		case 8:
 			self.init(UInt64(pgBinary: data, type: type) ?? 0)

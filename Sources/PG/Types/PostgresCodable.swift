@@ -23,7 +23,7 @@ public protocol PostgresBinaryEncodable: PostgresCodable {
 }
 
 public protocol PostgresBinaryDecodable: PostgresCodable {
-	init?(pgBinary data: DataSlice, type: OID)
+	init?(pgBinary data: Slice<Data>, type: OID)
 }
 
 public typealias PostgresBinaryCodable = PostgresBinaryEncodable & PostgresBinaryDecodable

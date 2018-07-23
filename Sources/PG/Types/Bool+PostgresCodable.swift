@@ -27,7 +27,7 @@ extension Bool: PostgresCodable, PostgresTextCodable, PostgresBinaryCodable {
 		return Data([ self ? 1 : 0 ])
 	}
 	
-	public init?(pgBinary data: DataSlice, type: OID) {
+	public init?(pgBinary data: Slice<Data>, type: OID) {
 		// if any byte is not null
 		self.init(data.contains(where: { $0 != 0 }))
 	}

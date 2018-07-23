@@ -29,7 +29,7 @@ class DateCodingTests: XCTestCase {
 		)
 		
 		XCTAssertEqualDates(
-			Date(pgBinary: DataSlice(Data(base64Encoded: "AAHzHRMD4Ic=")!), type: .timestamp),
+			Date(pgBinary: Slice<Data>(Data(base64Encoded: "AAHzHRMD4Ic=")!), type: .timestamp),
 			Date(timeIntervalSince1970: 1495465975.333)
 		)
 		

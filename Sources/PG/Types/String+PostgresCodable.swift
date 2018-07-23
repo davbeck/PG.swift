@@ -14,7 +14,7 @@ extension String: PostgresTextCodable, PostgresBinaryCodable {
 		return self
 	}
 	
-	public init?(pgBinary data: DataSlice, type: OID) {
+	public init?(pgBinary data: Slice<Data>, type: OID) {
 		self.init(data)
 	}
 	

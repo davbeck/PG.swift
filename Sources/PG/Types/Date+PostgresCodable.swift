@@ -64,7 +64,7 @@ extension Date: PostgresCodable, PostgresTextCodable, PostgresBinaryCodable {
 		}
 	}
 	
-	public init?(pgBinary data: DataSlice, type: OID) {
+	public init?(pgBinary data: Slice<Data>, type: OID) {
 		if data.count == 8 {
 			let rawValue = TimeInterval(Int64(bigEndian: data.withUnsafeBytes({ $0.pointee })))
 			// Adjust from 2000 to 1970 (Foundation reference date is 2001 and theoretically subject to change)

@@ -7,7 +7,7 @@ extension String {
 		return self.data(using: .utf8, allowLossyConversion: true)!
 	}
 	
-	public init?(_ data: DataSlice, encoding: String.Encoding = .utf8) {
+	public init?(_ data: Slice<Data>, encoding: String.Encoding = .utf8) {
 		self.init(bytes: data, encoding: encoding)
 	}
 }
@@ -19,8 +19,6 @@ extension Data {
 		self.init(buffer: UnsafeBufferPointer(start: &value, count: 1))
 	}
 }
-
-public typealias DataSlice = Slice<Data>
 
 extension Slice where Base == Data {
 	/// Access the bytes in the data.

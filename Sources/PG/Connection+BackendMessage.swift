@@ -65,7 +65,7 @@ extension Connection {
 		public var type: BackendMessageType
 		
 		/// The main body of the message, defined by the length in the header
-		private(set) var data: DataSlice
+		private(set) var data: Slice<Data>
 		
 		
 		/// Create a new backend message
@@ -75,7 +75,7 @@ extension Connection {
 		///   - data: The body of the message, not including the header
 		public init(type: BackendMessageType, data: Data) {
 			self.type = type
-			self.data = DataSlice(data)
+			self.data = Slice<Data>(data)
 		}
 		
 		
@@ -86,7 +86,7 @@ extension Connection {
 		/// - Parameter length: The length of data to read in bytes
 		/// - Returns: A data slice from the original packet
 		/// - Throws: Error.notEnoughData if the length is greater than the amount of data left to read
-		public mutating func read(length: Int) throws -> DataSlice {
+		public mutating func read(length: Int) throws -> Slice<Data> {
 			guard data.count >= length else { throw Error.notEnoughData }
 			
 			let subData = data.prefix(length)

@@ -14,7 +14,7 @@ extension UUID: PostgresTextCodable, PostgresBinaryCodable {
 		return self.uuidString
 	}
 	
-	public init?(pgBinary data: DataSlice, type: OID) {
+	public init?(pgBinary data: Slice<Data>, type: OID) {
 		guard data.count == 16 else { return nil }
 		
 		self.init(uuid: (

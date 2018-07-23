@@ -62,7 +62,7 @@ public final class Connection {
 	public let authenticationCleartextPassword = EventEmitter<Void>(name: "PG.Connection.authenticationCleartextPassword")
 	
 	/// Emitted when an MD5 hashed password response is requested to authenticate.
-	public let authenticationMD5Password = EventEmitter<DataSlice>(name: "PG.Connection.authenticationMD5Password")
+	public let authenticationMD5Password = EventEmitter<Slice<Data>>(name: "PG.Connection.authenticationMD5Password")
 	
 	
 	/// A message (of any type) was received from the server.
@@ -90,7 +90,7 @@ public final class Connection {
 	/// Emitted when a single row is received
 	///
 	/// This should be sent for each row in a SELECT result.
-	public let rowReceived = EventEmitter<[DataSlice?]>(name: "PG.Connection.rowReceived")
+	public let rowReceived = EventEmitter<[Slice<Data>?]>(name: "PG.Connection.rowReceived")
 	
 	/// Emitted when a query has completed processing
 	///
@@ -273,7 +273,7 @@ public final class Connection {
 		case BackendMessageType.dataRow:
 			let columnCount = try message.read() as UInt16
 			
-			let rows: [DataSlice?] = try (0..<columnCount).map() { _ in
+			let rows: [Slice<Data>?] = try (0..<columnCount).map() { _ in
 				let length = try message.read() as Int32
 				if length >= 0 {
 					return try message.read(length: Int(length))
@@ -360,7 +360,7 @@ extension Connection {
 	///   - username: The username used to connect to the server. This must match the one sent in the startup message.
 	///   - password: The password to authenticate with.
 	///   - salt: The salt returned from the server.
-	func sendMD5Authentication(username: String, password: String, salt: DataSlice) {
+	func sendMD5Authentication(username: String, password: String, salt: Slice<Data>) {
         let salt = String(salt) ?? ""
 		let passwordHash = "md5" + md5(md5(password + username) + salt)
 		

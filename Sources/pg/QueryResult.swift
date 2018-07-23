@@ -41,7 +41,7 @@ public class QueryResult {
 	/// The type parser to use to convert row data into usable types.
 	public let typeParser: TypeParser
 	
-	init(commandResponse: String, fields: [Field], rows: [[DataSlice?]], typeParser: TypeParser) throws {
+	init(commandResponse: String, fields: [Field], rows: [[Slice<Data>?]], typeParser: TypeParser) throws {
 		switch commandResponse {
 		case "CREATE DATABASE":
 			self.kind = .createDatabase
@@ -91,14 +91,14 @@ public class QueryResult {
 		
 		/// The raw row data returned from the server
 		///
-		/// DataSlice references a Data object rather than copying memory for each value.
-		let rawRow: [DataSlice?]
+		/// Slice<Data> references a Data object rather than copying memory for each value.
+		let rawRow: [Slice<Data>?]
 		
 		
 		/// Get the raw data slice for the value at a given index
 		///
 		/// - Parameter index: The index of the column/field to get.
-		public subscript(raw index: Int) -> DataSlice? {
+		public subscript(raw index: Int) -> Slice<Data>? {
 			get {
 				return rawRow[index]
 			}
@@ -122,7 +122,7 @@ public class QueryResult {
 		/// Get the raw data slice for the field with the given name
 		///
 		/// - Parameter name: The name of the field to fetch.
-		public subscript(raw name: String) -> DataSlice? {
+		public subscript(raw name: String) -> Slice<Data>? {
 			guard let index = fields.index(where: { $0.name == name }) else { return nil }
 			
 			return rawRow[index]

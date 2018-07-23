@@ -341,7 +341,7 @@ public final class Client {
 	///
 	/// If a query is alredy in progress, or the client is not connected, this will be enqued until the connection is ready to process queries again.
 	///
-	/// Setting `resultsMode` to `.binary` can improve performance, particularly for the timestamp types, however the binary encodings are undocumented and should be used with caution. If a text encoded value can't be parsed, it will gracefully fallback to a String, but in binary mode it will fallback to a `DataSlice` that may not be meaningful.
+	/// Setting `resultsMode` to `.binary` can improve performance, particularly for the timestamp types, however the binary encodings are undocumented and should be used with caution. If a text encoded value can't be parsed, it will gracefully fallback to a String, but in binary mode it will fallback to a `Slice<Data>` that may not be meaningful.
 	///
 	/// - Parameters:
 	///   - query: The query to be execute.
@@ -364,7 +364,7 @@ public final class Client {
 			var fields: [Field] = []
 			observers.append(connection.rowDescriptionReceived.once(on: self.queue) { fields = $0 })
 			
-			var rows: [[DataSlice?]] = []
+			var rows: [[Slice<Data>?]] = []
 			observers.append(connection.rowReceived.observe(on: self.queue) { rowFields in
 				rows.append(rowFields)
 			})

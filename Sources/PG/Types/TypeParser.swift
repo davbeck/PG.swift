@@ -33,7 +33,7 @@ public struct TypeParser {
 		
 	}
 	
-	public func parse(_ data: DataSlice, for field: Field) -> Any? {
+	public func parse(_ data: Slice<Data>, for field: Field) -> Any? {
 		for type in types {
 			guard type.pgTypes.contains(field.dataTypeID) else { continue }
 			
@@ -57,7 +57,7 @@ public struct TypeParser {
 		}
 	}
 	
-	public func parse<T: PostgresCodable>(_ data: DataSlice, for field: Field) -> T? {
+	public func parse<T: PostgresCodable>(_ data: Slice<Data>, for field: Field) -> T? {
 		guard T.pgTypes.contains(field.dataTypeID) else { return nil }
 		
 		switch field.mode {

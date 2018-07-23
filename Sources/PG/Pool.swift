@@ -209,7 +209,7 @@ public class Pool {
 	///
 	/// Note that the query will be queued until a client is available for excecution. If all clients are busy, and `maximumConnections` has not been reached, a new client will be created.
 	///
-	/// Setting `resultsMode` to `.binary` can improve performance, particularly for the timestamp types, however the binary encodings are undocumented and should be used with caution. If a text encoded value can't be parsed, it will gracefully fallback to a String, but in binary mode it will fallback to a `DataSlice` that may not be meaningful.
+	/// Setting `resultsMode` to `.binary` can improve performance, particularly for the timestamp types, however the binary encodings are undocumented and should be used with caution. If a text encoded value can't be parsed, it will gracefully fallback to a String, but in binary mode it will fallback to a `Slice<Data>` that may not be meaningful.
 	///
 	/// - Parameters:
 	///   - query: The query to be execute.

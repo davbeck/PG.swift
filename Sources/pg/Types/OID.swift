@@ -101,7 +101,7 @@ extension OID: PostgresTextCodable, PostgresBinaryCodable {
 		return rawValue.pgText
 	}
 	
-	public init?(pgBinary data: DataSlice, type: OID) {
+	public init?(pgBinary data: Slice<Data>, type: OID) {
 		guard let rawValue = UInt32(pgBinary: data, type: type) else { return nil }
 		self.init(rawValue)
 	}
