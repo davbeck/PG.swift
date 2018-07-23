@@ -1,5 +1,4 @@
 import Foundation
-import AsyncKit
 
 
 /// An abstract socket interface.

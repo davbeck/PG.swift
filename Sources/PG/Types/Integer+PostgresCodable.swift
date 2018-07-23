@@ -1,7 +1,7 @@
 import Foundation
 
 
-public protocol IntegerPostgresCodable: PostgresTextCodable, PostgresBinaryCodable, Integer {
+public protocol IntegerPostgresCodable: PostgresTextCodable, PostgresBinaryCodable, BinaryInteger {
 	init?(_ text: String, radix: Int)
 }
 
@@ -11,16 +11,10 @@ extension IntegerPostgresCodable {
 	}
 }
 
-extension PostgresTextDecodable where Self: SignedInteger {
+extension PostgresTextDecodable where Self: FixedWidthInteger {
 	public var pgText: String? {
 		return String.init(self)
 	}
-}
-
-extension PostgresTextDecodable where Self: UnsignedInteger {
-    public var pgText: String? {
-        return String.init(self)
-    }
 }
 
 extension PostgresBinaryDecodable where Self: NetworkOrderable {

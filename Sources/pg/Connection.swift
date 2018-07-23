@@ -228,7 +228,7 @@ public final class Connection {
 					authenticationMD5Password.emit(salt)
 				}
 			} else {
-				
+				fatalError("unrecognized authentication method: \(rawResponse)")
 			}
 		case BackendMessageType.statusReport:
 			let key: String = try message.read()

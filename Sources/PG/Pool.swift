@@ -1,6 +1,5 @@
 import Foundation
 import Dispatch
-import AsyncKit
 
 
 /// A pool of connections to postgres servers.
@@ -44,7 +43,7 @@ public class Pool {
 		self.idleTimeout = idleTimeout
 		
 		self.idleTimer = DispatchSource.makeTimerSource(queue: self.queue)
-		idleTimer.scheduleRepeating(deadline: .now(), interval: .seconds(Int(idleTimeout)))
+		idleTimer.schedule(deadline: .now(), repeating: .seconds(Int(idleTimeout)))
 		idleTimer.setEventHandler() { [weak self] in
 			self?.cleanupIdleWorkers()
 		}

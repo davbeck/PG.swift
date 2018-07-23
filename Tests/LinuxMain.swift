@@ -8,6 +8,7 @@ import XCTest
 extension ClientTests {
   static var allTests: [(String, (ClientTests) -> () throws -> Void)] = [
     ("testInvalidURL", testInvalidURL),
+    ("testCreateTable", testCreateTable),
     ("testConnect", testConnect),
     ("testSimpleQuery", testSimpleQuery),
     ("testQueryBindings", testQueryBindings),

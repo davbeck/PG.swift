@@ -57,7 +57,7 @@ class ClientTests: XCTestCase {
 		let connectExpectation = self.expectation(description: "connect client")
 		client.connect(completion: { error in
 			XCTAssertNil(error)
-            XCTAssertNotNil(client.connection)
+			XCTAssertNotNil(client.connection)
 			
 			XCTAssertEqual(client.connection?.transactionStatus, .idle)
 			

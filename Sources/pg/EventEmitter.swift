@@ -144,3 +144,9 @@ public class EventEmitter<Payload> {
 		}
 	}
 }
+
+extension EventEmitter where Payload == Void {
+	public func emit() {
+		self.emit(Void())
+	}
+}

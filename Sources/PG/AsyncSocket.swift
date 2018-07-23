@@ -1,7 +1,6 @@
 import Socket
 import Foundation
 import Dispatch
-import AsyncKit
 
 
 /// A socket that is implimented with [AsyncSocket](https://github.com/IBM-Swift/AsyncSocket)
@@ -42,7 +41,6 @@ public class AsyncSocket: ConnectionSocket {
 	
 	/// Emitted when the connection is established with the server
 	public let connected = EventEmitter<Void>(name: "PG.AsyncSocket.connected")
-	fileprivate var hasEmittedConnected = false
 	
 	public let closed = EventEmitter<Void>(name: "PG.AsyncSocket.closed")
 	

@@ -20,9 +20,9 @@ extension Data {
 	}
 }
 
-public typealias DataSlice = MutableRangeReplaceableRandomAccessSlice<Data>
+public typealias DataSlice = Slice<Data>
 
-extension MutableRangeReplaceableRandomAccessSlice where Base == Data {
+extension Slice where Base == Data {
 	/// Access the bytes in the data.
 	///
 	/// This accesses the bytes directly in it's underlying data object without an additional copy.

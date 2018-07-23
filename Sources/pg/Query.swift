@@ -1,5 +1,4 @@
 import Foundation
-import AsyncKit
 
 
 /// An SQL query
@@ -116,9 +115,9 @@ public struct Query {
 			guard bindings.count == statement.bindingTypes.count else { throw Error.wrongNumberOfBindings }
 			
 			// swift 4 should support 3 way zip
-			for (index, (binding, type)) in zip(bindings.indices, zip(bindings, statement.bindingTypes)) {
-				if let binding = binding, type(of: binding) != type {
-					throw Error.mismatchedBindingType(value: binding, index: index, expectedType: type)
+			for (index, (binding, bindingType)) in zip(bindings.indices, zip(bindings, statement.bindingTypes)) {
+				if let binding = binding, type(of: binding) != bindingType {
+					throw Error.mismatchedBindingType(value: binding, index: index, expectedType: bindingType)
 				}
 			}
 		}
