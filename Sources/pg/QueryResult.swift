@@ -109,7 +109,7 @@ public class QueryResult {
 		/// Values are processed by the 'typeParser` each time this is called.
 		///
 		/// - Parameter index: The index of the column/field to get.
-		public subscript(index: Int) -> Any? {
+		public subscript<T: PostgresCodable>(index: Int) -> T? {
 			get {
 				guard let data = rawRow[index] else { return nil }
 				let field = fields[index]
@@ -133,7 +133,7 @@ public class QueryResult {
 		/// Values are processed by the 'typeParser` each time this is called.
 		///
 		/// - Parameter name: The name of the field to fetch.
-		public subscript(name: String) -> Any? {
+		public subscript<T: PostgresCodable>(name: String) -> T? {
 			guard let index = fields.index(where: { $0.name == name }) else { return nil }
 			
 			return self[index]
@@ -145,6 +145,7 @@ public class QueryResult {
 		///
 		/// - Parameter name: The index of the field to fetch.
 		/// - Returns: A value for the field or nil, if the value cannot be processed as type T.
+		@available(*, deprecated, message: "Use subscripts instead")
 		public func value<T: PostgresCodable>(at index: Int) -> T? {
 			// swift 4 should introduce generic subscripts
 			guard let data = rawRow[index] else { return nil }
@@ -159,6 +160,7 @@ public class QueryResult {
 		///
 		/// - Parameter name: The name of the field to fetch.
 		/// - Returns: A value for the field or nil, if the value cannot be processed as type T.
+		@available(*, deprecated, message: "Use subscripts instead")
 		public func value<T: PostgresCodable>(for name: String) -> T? {
 			guard let index = fields.index(where: { $0.name == name }) else { return nil }
 			
@@ -178,7 +180,8 @@ extension Dictionary where Key == String, Value == Any {
 		self.init()
 		
 		for (index, field) in zip(row.fields.indices, row.fields) {
-			self[field.name] = row[index]
+			guard let data = row[raw: index] else { continue }
+			self[field.name] = row.typeParser.parse(data, for: field)
 		}
 	}
 }

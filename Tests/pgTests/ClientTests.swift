@@ -108,20 +108,19 @@ class ClientTests: XCTestCase {
 //					XCTAssertEqual(result.rows[0]["e_uuid"] as? UUID, id)
 					
 //					XCTAssertEqual(result.rows[0]["e_text"] as? String, "Hello World")
-					XCTAssertEqual(result.rows[0]["e_varchar_100"] as? String, "Hello World")
-					XCTAssertEqual(result.rows[0]["e_varchar"] as? String, "Hello World")
-					XCTAssertEqual(result.rows[0]["e_char"] as? String, "H")
+					XCTAssertEqual(result.rows[0]["e_varchar_100"], "Hello World")
+					XCTAssertEqual(result.rows[0]["e_varchar"], "Hello World")
+					XCTAssertEqual(result.rows[0]["e_char"], "H")
 					
-					XCTAssertEqual(result.rows[0]["e_int2"] as? Int16, 100)
-					XCTAssertEqual(result.rows[0]["e_int4"] as? Int32, 65635)
-					XCTAssertEqual(result.rows[0]["e_int8"] as? Int64, 4294967395)
-					XCTAssertEqual(result.rows[0].value(for: "e_int8"), 4294967395)
-					XCTAssertEqual(result.rows[0].value(for: "e_int8") as Int?, 4294967395)
-					XCTAssertEqual(result.rows[0]["e_oid"] as? OID, 65635)
+					XCTAssertEqual(result.rows[0]["e_int2"] as Int16?, 100)
+					XCTAssertEqual(result.rows[0]["e_int4"] as Int32?, 65635)
+					XCTAssertEqual(result.rows[0]["e_int8"] as Int64?, 4294967395)
+					XCTAssertEqual(result.rows[0]["e_int8"] as Int?, 4294967395)
+					XCTAssertEqual(result.rows[0]["e_oid"] as OID?, 65635)
 					
-					XCTAssertEqual(result.rows[0]["e_timestamp"] as? Date, Date(timeIntervalSince1970: 1495465975.3329999))
-					XCTAssertEqual(result.rows[0]["e_timestamp_zoned"] as? Date, Date(timeIntervalSince1970: 1495491175.3329999))
-					XCTAssertEqual(result.rows[0]["e_date"] as? Date, Date(timeIntervalSince1970: 1495411200.0))
+					XCTAssertEqual(result.rows[0]["e_timestamp"], Date(timeIntervalSince1970: 1495465975.3329999))
+					XCTAssertEqual(result.rows[0]["e_timestamp_zoned"], Date(timeIntervalSince1970: 1495491175.3329999))
+					XCTAssertEqual(result.rows[0]["e_date"], Date(timeIntervalSince1970: 1495411200.0))
 				case .failure(let error):
 					XCTFail("error: \(error)")
 				}
@@ -150,7 +149,7 @@ class ClientTests: XCTestCase {
 					XCTAssertEqual(result.rows.count, 1)
 					XCTAssertEqual(result.rowCount, 1)
 					
-					XCTAssertEqual(result.rows[0]["e_uuid"] as? UUID, idA)
+					XCTAssertEqual(result.rows[0]["e_uuid"], idA)
 					
 					
 					try! query.update(bindings: [idB])
@@ -161,7 +160,7 @@ class ClientTests: XCTestCase {
 							XCTAssertEqual(result.rows.count, 1)
 							XCTAssertEqual(result.rowCount, 1)
 							
-							XCTAssertEqual(result.rows[0]["e_uuid"] as? UUID, idB)
+							XCTAssertEqual(result.rows[0]["e_uuid"], idB)
 						case .failure(let error):
 							XCTFail("error: \(error)")
 						}
@@ -198,7 +197,7 @@ class ClientTests: XCTestCase {
 						XCTAssertEqual(result.rows.count, 1)
 						XCTAssertEqual(result.rowCount, 1)
 						
-						XCTAssertEqual(result.rows[0]["e_uuid"] as? UUID, idA)
+						XCTAssertEqual(result.rows[0]["e_uuid"], idA)
 						
 						
 						try! query.update(bindings: [idB])
@@ -209,7 +208,7 @@ class ClientTests: XCTestCase {
 								XCTAssertEqual(result.rows.count, 1)
 								XCTAssertEqual(result.rowCount, 1)
 								
-								XCTAssertEqual(result.rows[0]["e_uuid"] as? UUID, idB)
+								XCTAssertEqual(result.rows[0]["e_uuid"], idB)
 							case .failure(let error):
 								XCTFail("error: \(error)")
 							}
@@ -241,24 +240,23 @@ class ClientTests: XCTestCase {
 					XCTAssertEqual(result.rows.count, 1)
 					XCTAssertEqual(result.rowCount, 1)
 					
-					XCTAssertEqual(result.rows[0]["e_uuid"] as? UUID, id)
+					XCTAssertEqual(result.rows[0]["e_uuid"], id)
 					
-					XCTAssertEqual(result.rows[0]["e_text"] as? String, "Hello World")
-					XCTAssertEqual(result.rows[0]["e_varchar_100"] as? String, "Hello World")
-					XCTAssertEqual(result.rows[0]["e_varchar"] as? String, "Hello World")
-					XCTAssertEqual(result.rows[0]["e_char"] as? String, "H")
+					XCTAssertEqual(result.rows[0]["e_text"], "Hello World")
+					XCTAssertEqual(result.rows[0]["e_varchar_100"], "Hello World")
+					XCTAssertEqual(result.rows[0]["e_varchar"], "Hello World")
+					XCTAssertEqual(result.rows[0]["e_char"], "H")
 					
-					XCTAssertEqual(result.rows[0]["e_int2"] as? Int16, 100)
-					XCTAssertEqual(result.rows[0]["e_int4"] as? Int32, 65635)
-					XCTAssertEqual(result.rows[0]["e_int8"] as? Int64, 4294967395)
-					XCTAssertEqual(result.rows[0].value(for: "e_int8"), 4294967395)
-					XCTAssertEqual(result.rows[0].value(for: "e_int8") as Int?, 4294967395)
-					XCTAssertEqual(result.rows[0]["e_oid"] as? OID, 65635)
+					XCTAssertEqual(result.rows[0]["e_int2"] as Int16?, 100)
+					XCTAssertEqual(result.rows[0]["e_int4"] as Int32?, 65635)
+					XCTAssertEqual(result.rows[0]["e_int8"] as Int64?, 4294967395)
+					XCTAssertEqual(result.rows[0]["e_int8"] as Int?, 4294967395)
+					XCTAssertEqual(result.rows[0]["e_oid"] as OID?, 65635)
 					
-					let timestamp = result.rows[0]["e_timestamp"] as? Date
+					let timestamp = result.rows[0]["e_timestamp"] as Date?
 					XCTAssertEqual(timestamp?.timeIntervalSince1970.rounded(), 1495465975)
 					
-					let timestamptz = result.rows[0]["e_timestamp_zoned"] as? Date
+					let timestamptz = result.rows[0]["e_timestamp_zoned"] as Date?
 					XCTAssertEqual(timestamptz?.timeIntervalSince1970.rounded(), 1495491175)
 				case .failure(let error):
 					XCTFail("error: \(error)")

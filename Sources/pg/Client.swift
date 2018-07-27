@@ -142,7 +142,7 @@ public final class Client {
 			
 			client.exec(Query("SELECT COUNT(*) FROM pg_database WHERE datname = $1;", name.lowercased()), callback: { (result) in
 				guard let value = result.value else { return completion(error) }
-				guard value.rows[0].value(at: 0) == 0 else { return completion(nil) }
+				guard value.rows[0][0] == 0 else { return completion(nil) }
 				
 				// prepared statements are not allowed for creating a database
 				client.exec(Query("CREATE DATABASE \(name)"), callback: { (result) in
