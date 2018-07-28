@@ -81,7 +81,7 @@ public final class Client {
 				host: host,
 				user: user,
 				password: url.password,
-				database: url.path,
+				database: url.path.first == "/" ? String(url.path.dropFirst()) : url.path,
 				port: url.port ?? Config.defaultPort
 			)
 		}
