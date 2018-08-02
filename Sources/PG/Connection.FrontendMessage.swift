@@ -82,9 +82,11 @@ extension Connection {
 		}
 		
 		private mutating func writeHeader() {
-			data.withUnsafeMutableBytes { (bytes: UnsafeMutablePointer<UInt8>) -> Void in
-				bytes.advanced(by: self.sizeOffset).withMemoryRebound(to: UInt32.self, capacity: 1, { (sizeBytes) -> Void in
-					sizeBytes.pointee = UInt32(self.data.count - self.sizeOffset).bigEndian
+			let sizeOffset = self.sizeOffset
+			let size = UInt32(data.count - sizeOffset)
+			self.data.withUnsafeMutableBytes { (bytes: UnsafeMutablePointer<UInt8>) -> Void in
+				bytes.advanced(by: sizeOffset).withMemoryRebound(to: UInt32.self, capacity: 1, { (sizeBytes) -> Void in
+					sizeBytes.pointee = size.bigEndian
 				})
 			}
 		}
